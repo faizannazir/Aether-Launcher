@@ -82,23 +82,23 @@ fun CustomizationSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Glass Blur Hardware Toggle Row
+            // Glass Surface Effects Toggle Row
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("GPU Render Acceleration", style = MaterialTheme.typography.bodyLarge, color = textColor)
-                    Text("Hardware Kawase dual-filter glass blur", style = MaterialTheme.typography.labelSmall, color = textColor.copy(alpha = 0.6f))
+                    Text("Glass Translucency Effects", style = MaterialTheme.typography.bodyLarge, color = textColor)
+                    Text("Translucent glass material with specular edge highlights", style = MaterialTheme.typography.labelSmall, color = textColor.copy(alpha = 0.6f))
                 }
                 Switch(checked = state.isBlurEnabled, onCheckedChange = onBlurToggle)
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Glass Blur Intensity Slider
+            // Glass Surface Intensity Slider
             Text(
-                text = "Glass Blur Intensity: ${(state.blurIntensity * 100).toInt()}%",
+                text = "Glass Surface Opacity: ${(state.blurIntensity * 100).toInt()}%",
                 style = MaterialTheme.typography.bodyMedium,
                 color = textColor
             )

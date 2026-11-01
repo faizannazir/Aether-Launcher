@@ -1,5 +1,7 @@
 package com.aether.launcher.ui.components
 
+import android.graphics.Bitmap
+import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -49,55 +51,65 @@ fun SquircleIcon(
     isBlurEnabled: Boolean = true
 ) {
     val bitmap = remember(iconDrawable) {
-        iconDrawable?.let {
-            val width = if (it.intrinsicWidth > 0) it.intrinsicWidth else 128
-            val height = if (it.intrinsicHeight > 0) it.intrinsicHeight else 128
-            it.toBitmap(width = width, height = height)
+        iconDrawable?.let { drawable ->
+            if (drawable is BitmapDrawable && drawable.bitmap != null && !drawable.bitmap.isRecycled) {
+                drawable.bitmap
+            } else {
+                val targetSize = 192
+                val w = if (drawable.intrinsicWidth > 0) drawable.intrinsicWidth else targetSize
+                val h = if (drawable.intrinsicHeight > 0) drawable.intrinsicHeight else targetSize
+                drawable.toBitmap(width = w, height = h, config = Bitmap.Config.ARGB_8888)
+            }
         }
     }
 
-    val iconBgColor = if (isDarkTheme) Color(0x33FFFFFF) else Color(0x22000000)
-    val labelTextColor = if (isDarkTheme) Color.White else Color(0xFF1C1B1F)
+    val accessibleDescription = if (label.isNotEmpty()) "Launch $label" else "Application icon"
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
             .semantics(mergeDescendants = true) {
                 role = Role.Button
-                contentDescription = if (label.isNotEmpty()) "Launch $label" else "Application icon"
+                contentDescription = accessibleDescription
             }
             .clickable(
                 onClick = onClick,
-                onClickLabel = "Launch $label"
+                onClickLabel = accessibleDescription
             )
-            .padding(4.dp)
+            .padding(2.dp)
     ) {
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
                 .size(size)
-                .shadow(elevation = 2.dp, shape = RoundedCornerShape(18.dp), clip = false)
-                .clip(RoundedCornerShape(18.dp))
-                .background(iconBgColor)
+                .shadow(elevation = 1.dp, shape = RoundedCornerShape(16.dp), clip = false)
         ) {
             if (bitmap != null) {
                 Image(
                     bitmap = bitmap.asImageBitmap(),
                     contentDescription = null,
                     filterQuality = FilterQuality.High,
-                    modifier = Modifier.size(size * 0.75f)
+                    modifier = Modifier.size(size)
                 )
             } else {
-                Icon(
-                    imageVector = Icons.Rounded.Android,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(size * 0.65f)
-                )
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(size)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(if (isDarkTheme) Color(0x33FFFFFF) else Color(0x1FFFFFFF))
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Android,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(size * 0.65f)
+                    )
+                }
             }
         }
 
-        if (showLabel) {
+        if (showLabel && label.isNotEmpty()) {
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = label,
@@ -105,7 +117,7 @@ fun SquircleIcon(
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium
                 ),
-                color = labelTextColor,
+                color = Color.White,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center

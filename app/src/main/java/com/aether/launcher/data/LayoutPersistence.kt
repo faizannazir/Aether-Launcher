@@ -156,8 +156,8 @@ class LayoutPersistence(private val context: Context) {
                                 HomeLayoutItem.ServiceWidget(
                                     id = id,
                                     position = position,
-                                    title = itemObj.optString("title", "Smart Schedule"),
-                                    subtitle = itemObj.optString("subtitle", "Design Sync · 10:30 AM"),
+                                    title = itemObj.optString("title", "System Dashboard"),
+                                    subtitle = itemObj.optString("subtitle", "Quick Controls & Settings"),
                                     isFocusActive = itemObj.optBoolean("isFocusActive", true),
                                     isMuted = itemObj.optBoolean("isMuted", false)
                                 )

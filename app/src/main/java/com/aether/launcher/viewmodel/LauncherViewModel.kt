@@ -49,8 +49,8 @@ class LauncherViewModel(
                         HomeLayoutItem.ServiceWidget(
                             id = "service_widget_schedule",
                             position = 0,
-                            title = "Design Sync · 10:30 AM",
-                            subtitle = "Conf Room 4 · Live Progress",
+                            title = "System Dashboard",
+                            subtitle = "Quick Controls & Settings",
                             isFocusActive = true
                         )
                     )
@@ -160,6 +160,21 @@ class LauncherViewModel(
                 pages = updatedPages,
                 activeFolder = current.activeFolder?.takeIf { it.id == folderId }?.copy(title = newTitle) ?: current.activeFolder
             )
+        }
+        saveCurrentLayout()
+    }
+
+    fun toggleServiceWidgetFocus(widgetId: String) {
+        _uiState.update { current ->
+            val updatedPages = current.pages.map { page ->
+                val updatedItems = page.items.map { item ->
+                    if (item is HomeLayoutItem.ServiceWidget && item.id == widgetId) {
+                        item.copy(isFocusActive = !item.isFocusActive)
+                    } else item
+                }
+                page.copy(items = updatedItems)
+            }
+            current.copy(pages = updatedPages)
         }
         saveCurrentLayout()
     }

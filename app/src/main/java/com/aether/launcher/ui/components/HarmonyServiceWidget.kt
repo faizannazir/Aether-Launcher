@@ -1,5 +1,8 @@
 package com.aether.launcher.ui.components
 
+import android.content.Intent
+import android.provider.Settings
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -14,9 +17,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CalendarToday
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.VolumeMute
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -24,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -39,7 +43,9 @@ fun HarmonyServiceWidget(
     onToggleFocus: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val textColor = if (isDarkTheme) Color.White else Color(0xFF191C1E)
+    val accentColor = if (isDarkTheme) Color(0xFF00FBFF) else Color(0xFF0284C7)
 
     Box(
         modifier = modifier
@@ -64,48 +70,51 @@ fun HarmonyServiceWidget(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        imageVector = Icons.Rounded.CalendarToday,
-                        contentDescription = "Schedule",
-                        tint = Color(0xFF2563EB),
+                        imageVector = Icons.Rounded.Widgets,
+                        contentDescription = "Service Control",
+                        tint = accentColor,
                         modifier = Modifier.size(18.dp)
                     )
                     Text(
-                        text = "  SCHEDULE",
+                        text = "  SERVICE WIDGET",
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        color = textColor.copy(alpha = 0.8f)
+                        color = textColor.copy(alpha = 0.9f)
                     )
                 }
 
                 Box(
                     modifier = Modifier
                         .size(8.dp)
-                        .background(Color(0xFF00FBFF), RoundedCornerShape(4.dp))
+                        .background(accentColor, RoundedCornerShape(4.dp))
                 )
             }
 
             Column {
                 Text(
                     text = widgetItem.title,
-                    style = MaterialTheme.typography.titleSmall.copy(fontSize = 15.sp),
+                    style = MaterialTheme.typography.titleSmall.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
                     color = textColor,
                     maxLines = 1
                 )
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = widgetItem.subtitle,
                     style = MaterialTheme.typography.labelSmall,
-                    color = textColor.copy(alpha = 0.7f),
+                    color = textColor.copy(alpha = 0.75f),
                     maxLines = 1
                 )
             }
 
-            // Quick Toggle Row
+            // Quick Control Action Buttons
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
+                // Focus Toggle Button (Launcher Focus State)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
                     modifier = Modifier
                         .weight(1f)
                         .clickable(onClick = onToggleFocus)
@@ -115,41 +124,53 @@ fun HarmonyServiceWidget(
                             blurEnabled = isBlurEnabled,
                             shape = RoundedCornerShape(12.dp)
                         )
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                        .padding(horizontal = 6.dp, vertical = 6.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.CheckCircle,
-                        contentDescription = "Focus",
-                        tint = if (widgetItem.isFocusActive) Color(0xFF00FBFF) else textColor.copy(alpha = 0.4f),
+                        contentDescription = "Launcher Focus Mode",
+                        tint = if (widgetItem.isFocusActive) accentColor else textColor.copy(alpha = 0.4f),
                         modifier = Modifier.size(14.dp)
                     )
                     Text(
-                        text = " Focus",
+                        text = if (widgetItem.isFocusActive) " Focus ON" else " Focus OFF",
                         style = MaterialTheme.typography.labelSmall,
                         color = textColor
                     )
                 }
 
+                // System Settings Launcher Button
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
                     modifier = Modifier
                         .weight(1f)
+                        .clickable {
+                            try {
+                                val intent = Intent(Settings.ACTION_SETTINGS).apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "Unable to open Settings", Toast.LENGTH_SHORT).show()
+                            }
+                        }
                         .glassSurface(
                             level = GlassLevel.SUBTLE,
                             isDarkTheme = isDarkTheme,
                             blurEnabled = isBlurEnabled,
                             shape = RoundedCornerShape(12.dp)
                         )
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                        .padding(horizontal = 6.dp, vertical = 6.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.VolumeMute,
-                        contentDescription = "Mute",
-                        tint = textColor.copy(alpha = 0.6f),
+                        imageVector = Icons.Rounded.Settings,
+                        contentDescription = "Settings",
+                        tint = textColor.copy(alpha = 0.9f),
                         modifier = Modifier.size(14.dp)
                     )
                     Text(
-                        text = " Mute",
+                        text = " Settings",
                         style = MaterialTheme.typography.labelSmall,
                         color = textColor
                     )

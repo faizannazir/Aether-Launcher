@@ -1,9 +1,5 @@
 package com.aether.launcher.glass
 
-import android.graphics.RenderEffect as AndroidRenderEffect
-import android.graphics.Shader
-import android.os.Build
-import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -13,14 +9,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.asComposeRenderEffect
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.aether.launcher.ui.theme.*
 
 enum class GlassLevel(
-    val blurDp: Float,
     val lightColor: Color,
     val darkColor: Color,
     val lightFallback: Color,
@@ -30,34 +22,31 @@ enum class GlassLevel(
     val elevation: Dp
 ) {
     SUBTLE(
-        blurDp = 16f,
-        lightColor = GlassLightLevel1,
-        darkColor = GlassDarkLevel1,
-        lightFallback = Color(0xF0F0F3F6),
-        darkFallback = Color(0xF0181C24),
+        lightColor = Color(0x40FFFFFF),       // 25% white
+        darkColor = Color(0x261E293B),        // 15% slate
+        lightFallback = Color(0xF2F1F5F9),    // 95% light
+        darkFallback = Color(0xF20F172A),     // 95% dark
         specularBorderLight = Color(0x66FFFFFF),
-        specularBorderDark = Color(0x1AFFFFFF),
+        specularBorderDark = Color(0x33FFFFFF),
         elevation = 2.dp
     ),
     BALANCED(
-        blurDp = 28f,
-        lightColor = GlassLightLevel2,
-        darkColor = GlassDarkLevel2,
-        lightFallback = Color(0xF5FFFFFF),
-        darkFallback = Color(0xF5191C28),
-        specularBorderLight = SpecularBorderLight,
-        specularBorderDark = SpecularBorderDark,
-        elevation = 8.dp
+        lightColor = Color(0x59FFFFFF),       // 35% white
+        darkColor = Color(0x401E293B),        // 25% slate
+        lightFallback = Color(0xF8F8FAFC),
+        darkFallback = Color(0xF80F172A),
+        specularBorderLight = Color(0x99FFFFFF),
+        specularBorderDark = Color(0x40FFFFFF),
+        elevation = 6.dp
     ),
     STRONG(
-        blurDp = 44f,
-        lightColor = GlassLightLevel3,
-        darkColor = GlassDarkLevel3,
+        lightColor = Color(0x80FFFFFF),       // 50% white
+        darkColor = Color(0x660F172A),        // 40% slate
         lightFallback = Color(0xFFFFFFFF),
-        darkFallback = Color(0xFF101319),
-        specularBorderLight = SpecularBorderLight,
-        specularBorderDark = SpecularBorderDark,
-        elevation = 16.dp
+        darkFallback = Color(0xFF0F172A),
+        specularBorderLight = Color(0xCCFFFFFF),
+        specularBorderDark = Color(0x4DFFFFFF),
+        elevation = 12.dp
     )
 }
 
@@ -72,30 +61,17 @@ fun Modifier.glassSurface(
     val backgroundColor = if (isDarkTheme) level.darkColor else level.lightColor
     val fallbackColor = if (isDarkTheme) level.darkFallback else level.lightFallback
     val borderColor = if (isDarkTheme) level.specularBorderDark else level.specularBorderLight
+    val activeBg = if (blurEnabled) backgroundColor else fallbackColor
 
     return this
         .shadow(
             elevation = level.elevation,
             shape = shape,
             clip = false,
-            ambientColor = Color.Black.copy(alpha = 0.15f),
-            spotColor = Color.Black.copy(alpha = 0.25f)
+            ambientColor = Color.Black.copy(alpha = 0.20f),
+            spotColor = Color.Black.copy(alpha = 0.30f)
         )
         .clip(shape)
-        .then(
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && blurEnabled) {
-                Modifier
-                    .graphicsLayer {
-                        renderEffect = AndroidRenderEffect.createBlurEffect(
-                            level.blurDp,
-                            level.blurDp,
-                            Shader.TileMode.CLAMP
-                        ).asComposeRenderEffect()
-                    }
-                    .background(backgroundColor, shape)
-            } else {
-                Modifier.background(fallbackColor, shape)
-            }
-        )
+        .background(activeBg, shape)
         .border(borderWidth, borderColor, shape)
 }

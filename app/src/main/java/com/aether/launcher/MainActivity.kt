@@ -80,7 +80,8 @@ class MainActivity : ComponentActivity() {
                         onFolderClick = { viewModel.openFolder(it) },
                         onOpenEditMode = { viewModel.toggleCustomizationSheet(true) },
                         onStartDrag = { item, page, pos -> viewModel.startDrag(item, page, pos) },
-                        onDropItem = { pos -> viewModel.dropDraggedItem(pos) }
+                        onDropItem = { pos -> viewModel.dropDraggedItem(pos) },
+                        onToggleServiceWidgetFocus = { id -> viewModel.toggleServiceWidgetFocus(id) }
                     )
 
                     if (state.currentScreen == LauncherScreen.APP_DRAWER) {
@@ -155,7 +156,6 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-
 
     fun requestDefaultHomeRole() {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
