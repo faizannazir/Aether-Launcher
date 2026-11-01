@@ -11,7 +11,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -303,9 +302,6 @@ fun HomeScreen(
                         } while (event.changes.any { it.pressed })
                     }
                 }
-                .pointerInput(Unit) {
-                    detectTapGestures(onLongPress = { onOpenEditMode() })
-                }
                 .pointerInput(onOpenEditMode) {
                     var editorOpened = false
                     detectTransformGestures { _, _, zoom, _ ->
@@ -428,17 +424,7 @@ fun HomeScreen(
                             isDarkTheme = state.isDarkTheme,
                             isBlurEnabled = state.isBlurEnabled,
                             labelColor = Color.White,
-                            onLongClick = {
-                                val layoutItem = pageApps.firstOrNull { it.packageName == app.packageName }
-                                    ?: HomeLayoutItem.App(
-                                        id = "app_" + app.packageName,
-                                        position = homeApps.indexOf(app),
-                                        packageName = app.packageName,
-                                        className = app.className
-                                    )
-                                onStartDrag(layoutItem, activePage?.pageIndex ?: state.activePageIndex, layoutItem.position)
-                                onOpenEditMode()
-                            },
+                            onLongClick = onOpenEditMode,
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
