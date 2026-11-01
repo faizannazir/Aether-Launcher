@@ -1,59 +1,34 @@
-# Aether Launcher — Next-Generation Android Launcher for Google Pixel
+# Aether Launcher
 
-Aether Launcher is a lightweight, ultra-fast, native Android launcher optimized for Google Pixel devices. It combines the spatial glassmorphism and depth of **Huawei HarmonyOS** with the wallpaper-first simplicity and zero-latency usability of **Google Pixel Material You**, accompanied by **Nothing OS-inspired typography**.
+A lightweight native Android home-screen replacement inspired by the visual language of Huawei HarmonyOS 4. It is an independent Android launcher, not a Huawei system component and does not copy proprietary assets.
 
----
+## What it does
 
-## Key Features
+- Registers as an Android HOME activity and can be selected as the device's default launcher.
+- Discovers installed launchable apps and launches them directly.
+- Presents a clean Harmony-inspired home screen with a large clock, date, app grid, search entry and floating dock.
+- Includes an app drawer, app search, folders, customization and Android AppWidgetHost integration.
+- Uses native Jetpack Compose surfaces and restrained translucency to keep scrolling responsive.
 
-- **Wallpaper-First Home Screen:** 3D crystal sculpture ambient background with an oversized `10:08` geometric clock floating directly on the wallpaper (no rectangular card boundaries).
-- **Floating Translucent Glass Dock:** Physical glass container holding 5 quick-access favorite apps with multi-pass Gaussian blur, top specular highlight, and realistic ground shadow.
-- **App Drawer & Category Filtering:** Full-screen Level 3 glass overlay with search, quick category chips (*Social, Productivity, Media, Utilities*), and alphabetical app list.
-- **Responsive App Search:** Sub-5ms fuzzy search for installed applications with Gboard-inspired dark glass keyboard overlay.
-- **Home Screen Customization & Drag-and-Drop:** Long-press to edit, reorder apps/widgets, and auto-create folders by dropping an app onto another.
-- **Native Android Widgets:** Integrated `AppWidgetHost` and `AppWidgetManager` with `WidgetPickerSheet` for placing, configuring, and restoring real system widgets.
-- **Jetpack DataStore Layout Persistence:** Stores pages, folders, dock items, and widget IDs safely without frame lag during animations.
-- **3-Tier Glass Material Engine:** Hardware-accelerated `RenderEffect` Kawase blur on API 31+ with automatic low-power/battery saver fallback surfaces.
+## Make it the default launcher
 
----
+1. Install and open Aether Launcher.
+2. When Android asks, select Aether Launcher as the Home app.
+3. If Android does not show the chooser, open Settings → Apps → Default apps → Home app and select Aether Launcher.
 
-## Build Prerequisites
+The app cannot silently replace the current launcher. Android controls the HOME role and requires the user to approve the change.
 
-- **Java Development Kit (JDK):** Version 21 (OpenJDK / Temurin).
-- **Android SDK:** Compile SDK 35, Min SDK 26, Target SDK 35.
-- **Gradle:** Version 8.8 (using Kotlin 1.9.22).
+## Build
 
----
+Requirements: JDK 21 and Android SDK.
 
-## Local Development & Build Commands
-
-### Assemble Debug APK
-```bash
-./gradlew assembleDebug
-```
-Output APK path: `app/build/outputs/apk/debug/app-debug.apk`
-
-### Run Unit Tests
 ```bash
 ./gradlew test
+./gradlew assembleDebug
 ```
 
-### Build Release APK
-```bash
-./gradlew assembleRelease
-```
+Debug APK: `app/build/outputs/apk/debug/app-debug.apk`.
 
----
+## Design direction
 
-## GitHub Actions CI & Release Workflows
-
-- **CI Workflow (`.github/workflows/android-ci.yml`):** Automatically runs unit tests and builds the debug APK artifact on pull requests and pushes to `main`.
-- **Release Workflow (`.github/workflows/android-release.yml`):** Automatically triggers on git tags (`v*`), builds the release APK, signs it using optional repository secrets (`KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`), and creates a GitHub Release with changelog artifacts.
-
----
-
-## Project Documentation
-
-- [`DESIGN.md`](DESIGN.md): Design system tokens, color palettes, glass material levels, and typography scales.
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): Jetpack Compose reactive architecture, ViewModel, DataStore persistence, and widget host integration.
-- [`docs/DESIGN_VALIDATION.md`](docs/DESIGN_VALIDATION.md): Test matrix, screenshot validation framework, and benchmark results.
+The interface takes inspiration from HarmonyOS 4's spacious composition, rounded icon language, large typography and translucent controls. It uses original layouts and Android system app icons rather than Huawei branding or proprietary assets.
