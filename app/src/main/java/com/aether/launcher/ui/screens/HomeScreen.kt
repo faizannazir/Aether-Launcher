@@ -1,17 +1,22 @@
 package com.aether.launcher.ui.screens
 
+import android.app.WallpaperManager
 import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetManager
+import android.graphics.Bitmap
 import android.text.format.DateFormat
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -29,8 +34,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -43,11 +48,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.graphics.drawable.toBitmap
 import com.aether.launcher.data.model.AppItem
 import com.aether.launcher.data.model.FolderItem
 import com.aether.launcher.data.model.HomeLayoutItem
@@ -61,6 +70,7 @@ import kotlinx.coroutines.delay
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.abs
 
 object ClockFormatter {
     fun formatTime(time: LocalDateTime, is24Hour: Boolean, locale: Locale = Locale.getDefault()): String {
@@ -95,18 +105,15 @@ fun GlanceClockHeader(
         }
     }
 
-    val primary = Color.White
-    val secondary = Color.White.copy(alpha = 0.72f)
-
     Column(
         modifier = modifier
             .fillMaxWidth()
             .pointerInput(onSwipeDown) {
                 var distance = 0f
-                detectVerticalDragGestures(
+                androidx.compose.foundation.gestures.detectVerticalDragGestures(
                     onDragStart = { distance = 0f },
                     onDragEnd = {
-                        if (distance > 42.dp.toPx()) onSwipeDown()
+                        if (distance > 48.dp.toPx()) onSwipeDown()
                         distance = 0f
                     },
                     onDragCancel = { distance = 0f },
@@ -119,20 +126,72 @@ fun GlanceClockHeader(
         horizontalAlignment = Alignment.Start
     ) {
         Text(
-            text = ClockFormatter.formatDate(now),
-            color = secondary,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.padding(start = 24.dp)
+            text = ClockFormatter.formatDate(now).uppercase(locale = Locale.getDefault()),
+            color = Color.White.copy(alpha = 0.74f),
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 1.1.sp,
+            modifier = Modifier.padding(start = 4.dp)
         )
         Text(
             text = ClockFormatter.formatTime(now, is24Hour),
-            color = primary,
-            fontSize = 64.sp,
-            lineHeight = 70.sp,
+            color = Color.White,
+            fontSize = 54.sp,
+            lineHeight = 60.sp,
             fontWeight = FontWeight.Light,
-            letterSpacing = (-3).sp,
-            modifier = Modifier.padding(start = 20.dp, top = 2.dp)
+            letterSpacing = (-2.5).sp,
+            modifier = Modifier.padding(top = 2.dp)
+        )
+    }
+}
+
+@Composable
+private fun WallpaperBackdrop(
+    modifier: Modifier = Modifier,
+    isDarkTheme: Boolean
+) {
+    val context = LocalContext.current
+    val wallpaper = remember(context) {
+        runCatching {
+            WallpaperManager.getInstance(context).drawable?.toBitmap(
+                width = 720,
+                height = 1600,
+                config = Bitmap.Config.ARGB_8888
+            )?.asImageBitmap()
+        }.getOrNull()
+    }
+
+    Box(modifier = modifier) {
+        if (wallpaper != null) {
+            Image(
+                bitmap = wallpaper,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.linearGradient(
+                            listOf(Color(0xFF24334B), Color(0xFF52647C), Color(0xFF252E43))
+                        )
+                    )
+            )
+        }
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        if (isDarkTheme) {
+                            listOf(Color.Black.copy(alpha = 0.34f), Color(0xFF07111F).copy(alpha = 0.48f))
+                        } else {
+                            listOf(Color(0xFF101A2A).copy(alpha = 0.28f), Color(0xFF101A2A).copy(alpha = 0.42f))
+                        }
+                    )
+                )
         )
     }
 }
@@ -155,101 +214,174 @@ fun HomeScreen(
     onPageSelected: (Int) -> Unit = {},
     onAddPage: () -> Unit = {}
 ) {
-    val background = if (state.isDarkTheme) {
-        Brush.verticalGradient(listOf(Color(0xFF101A31), Color(0xFF172B4D), Color(0xFF111827)))
-    } else {
-        Brush.verticalGradient(listOf(Color(0xFF5279A8), Color(0xFF7898B8), Color(0xFF344D70)))
-    }
     val activePage = state.pages.getOrNull(state.activePageIndex) ?: state.pages.firstOrNull()
-    val appByPackage = remember(state.installedApps) { state.installedApps.associateBy { it.packageName } }
+    val appByPackage = remember(state.installedApps) {
+        state.installedApps.associateBy { it.packageName }
+    }
+    val pageApps = activePage?.items
+        .orEmpty()
+        .filterIsInstance<HomeLayoutItem.App>()
+        .sortedBy { it.position }
+    val homeApps = remember(pageApps, state.installedApps, activePage?.pageIndex) {
+        if (pageApps.isEmpty() && activePage?.pageIndex == 0) {
+            state.installedApps.take(12)
+        } else {
+            pageApps.mapNotNull { appByPackage[it.packageName] }.take(12)
+        }
+    }
+    val specialItems = activePage?.items.orEmpty()
+        .filter { it !is HomeLayoutItem.App }
+        .sortedBy { it.position }
+        .take(2)
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(background)
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .pointerInput(Unit) { detectTapGestures(onLongPress = { onOpenEditMode() }) }
-            // Horizontal gestures switch desktops; vertical LazyGrid scrolling remains
-            // available because this detector only wins horizontal touch slop.
-            .pointerInput(state.pages.size, state.activePageIndex) {
-                var horizontalDistance = 0f
-                detectHorizontalDragGestures(
-                    onHorizontalDrag = { change, dragAmount ->
-                        horizontalDistance += dragAmount
-                        change.consume()
-                    },
-                    onDragEnd = {
-                        if (horizontalDistance < -56f && state.activePageIndex < state.pages.lastIndex) {
-                            onPageSelected(state.activePageIndex + 1)
-                        } else if (horizontalDistance > 56f && state.activePageIndex > 0) {
-                            onPageSelected(state.activePageIndex - 1)
-                        }
-                        horizontalDistance = 0f
-                    },
-                    onDragCancel = { horizontalDistance = 0f }
-                )
-            }
-            // Pinch-in is the Harmony-style entry gesture for the home editor.
-            .pointerInput(onOpenEditMode) {
-                var editorOpened = false
-                detectTransformGestures { _, _, zoom, _ ->
-                    if (zoom < 0.92f && !editorOpened) {
-                        editorOpened = true
-                        onOpenEditMode()
-                    }
-                }
-            }
+            .background(Color(0xFF182235))
     ) {
-        IconButton(onClick = onSettingsClick, modifier = Modifier.align(Alignment.TopEnd).padding(top = 2.dp, end = 12.dp)) {
-            Icon(Icons.Rounded.Settings, contentDescription = "Launcher settings", tint = Color.White.copy(alpha = 0.9f))
-        }
+        WallpaperBackdrop(Modifier.fillMaxSize(), state.isDarkTheme)
 
         Column(
-            modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .padding(horizontal = 20.dp)
+                .pointerInput(onSwipeUp, onPageSelected, state.pages.size, state.activePageIndex) {
+                    val horizontalThreshold = 56.dp.toPx()
+                    val upwardThreshold = 64.dp.toPx()
+                    val bottomGestureZone = 176.dp.toPx()
+
+                    awaitEachGesture {
+                        val down = awaitFirstDown(
+                            requireUnconsumed = false,
+                            pass = PointerEventPass.Initial
+                        )
+                        val startedNearDock = down.position.y >= size.height - bottomGestureZone
+                        var totalX = 0f
+                        var totalY = 0f
+                        var handled = false
+
+                        do {
+                            val event = awaitPointerEvent(PointerEventPass.Initial)
+                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                            if (change.pressed) {
+                                val delta = change.position - change.previousPosition
+                                totalX += delta.x
+                                totalY += delta.y
+
+                                if (!handled &&
+                                    state.pages.size > 1 &&
+                                    abs(totalX) >= horizontalThreshold &&
+                                    abs(totalX) > abs(totalY) * 1.2f
+                                ) {
+                                    change.consume()
+                                    handled = true
+                                    val nextPage = if (totalX < 0f) {
+                                        (state.activePageIndex + 1).coerceAtMost(state.pages.lastIndex)
+                                    } else {
+                                        (state.activePageIndex - 1).coerceAtLeast(0)
+                                    }
+                                    if (nextPage != state.activePageIndex) onPageSelected(nextPage)
+                                } else if (!handled &&
+                                    startedNearDock &&
+                                    totalY <= -upwardThreshold &&
+                                    abs(totalY) > abs(totalX) * 1.2f
+                                ) {
+                                    change.consume()
+                                    handled = true
+                                    onSwipeUp()
+                                }
+                            }
+                        } while (event.changes.any { it.pressed })
+                    }
+                }
+                .pointerInput(Unit) {
+                    detectTapGestures(onLongPress = { onOpenEditMode() })
+                }
+                .pointerInput(onOpenEditMode) {
+                    var editorOpened = false
+                    detectTransformGestures { _, _, zoom, _ ->
+                        if (zoom < 0.92f && !editorOpened) {
+                            editorOpened = true
+                            onOpenEditMode()
+                        }
+                    }
+                }
         ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 10.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                GlanceClockHeader(
+                    isDarkTheme = state.isDarkTheme,
+                    isBlurEnabled = state.isBlurEnabled,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(top = 8.dp),
+                    onSwipeDown = onSearchClick
+                )
+                IconButton(
+                    onClick = onSettingsClick,
+                    modifier = Modifier
+                        .padding(top = 0.dp)
+                        .size(42.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.14f))
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Settings,
+                        contentDescription = "Launcher settings",
+                        tint = Color.White.copy(alpha = 0.92f)
+                    )
+                }
+            }
+
             Spacer(Modifier.height(18.dp))
-            GlanceClockHeader(
-                isDarkTheme = state.isDarkTheme,
-                isBlurEnabled = state.isBlurEnabled,
-                modifier = Modifier.padding(bottom = 16.dp),
-                onSwipeDown = onSearchClick
-            )
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(Color.White.copy(alpha = if (state.isDarkTheme) 0.12f else 0.20f))
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(Color.White.copy(alpha = 0.15f))
+                    .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(22.dp))
                     .clickable(onClick = onSearchClick)
-                    .padding(horizontal = 16.dp, vertical = 13.dp),
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Rounded.Search, contentDescription = "Search apps", tint = Color.White.copy(alpha = 0.9f))
+                Icon(
+                    imageVector = Icons.Rounded.Search,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.88f),
+                    modifier = Modifier.size(19.dp)
+                )
                 Text(
-                    text = "Search apps",
+                    text = "Search apps and shortcuts",
                     color = Color.White.copy(alpha = 0.78f),
                     fontSize = 14.sp,
-                    modifier = Modifier.padding(start = 12.dp).weight(1f)
+                    modifier = Modifier
+                        .padding(start = 12.dp)
+                        .weight(1f)
                 )
-                Text("⌕", color = Color.White.copy(alpha = 0.65f), fontSize = 18.sp)
+                Text(
+                    text = "⌕",
+                    color = Color.White.copy(alpha = 0.65f),
+                    fontSize = 18.sp
+                )
             }
 
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(18.dp))
 
-            val specialItems = activePage?.items.orEmpty().filter {
-                (it is HomeLayoutItem.Folder && it.id != "folder_social") ||
-                    (it is HomeLayoutItem.ServiceWidget && it.id != "service_widget_schedule") ||
-                    it is HomeLayoutItem.Widget
-            }
             if (specialItems.isNotEmpty()) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().height(142.dp).padding(horizontal = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(138.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    specialItems.take(2).forEach { item ->
+                    specialItems.forEach { item ->
                         Box(Modifier.weight(1f).fillMaxSize()) {
                             when (item) {
                                 is HomeLayoutItem.Folder -> SmartFolder2x2(
@@ -258,7 +390,9 @@ fun HomeScreen(
                                     isDarkTheme = state.isDarkTheme,
                                     isBlurEnabled = state.isBlurEnabled,
                                     onAppClick = onAppClick,
-                                    onOpenFolderModal = { onFolderClick(FolderItem(item.id, item.title, item.appPackages)) }
+                                    onOpenFolderModal = {
+                                        onFolderClick(FolderItem(item.id, item.title, item.appPackages))
+                                    }
                                 )
                                 is HomeLayoutItem.ServiceWidget -> HarmonyServiceWidget(
                                     widgetItem = item,
@@ -280,99 +414,121 @@ fun HomeScreen(
                         }
                     }
                 }
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(14.dp))
             }
 
-            // Real installed apps are shown immediately; saved home items retain their positions.
-            val homeApps = remember(state.installedApps, activePage) {
-                val saved = activePage?.items.orEmpty()
-                    .filterIsInstance<HomeLayoutItem.App>()
-                    .mapNotNull { appByPackage[it.packageName] }
-                (saved.ifEmpty { if (activePage?.pageIndex == 0) state.installedApps.take(12) else emptyList() }).take(12)
-            }
-
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(state.gridColumns.substringBefore("x").toIntOrNull()?.coerceIn(3, 5) ?: 4),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalArrangement = Arrangement.spacedBy(15.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                items(homeApps, key = { it.packageName }) { app ->
-                    SquircleIcon(
-                        label = app.label,
-                        iconDrawable = app.icon,
-                        onClick = { onAppClick(app) },
-                        size = 46.dp,
-                        isDarkTheme = state.isDarkTheme,
-                        isBlurEnabled = state.isBlurEnabled,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                Text(
+                    text = if (activePage?.pageIndex == 0) "Favourites" else "Home page " + (state.activePageIndex + 1),
+                    color = Color.White.copy(alpha = 0.94f),
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    text = homeApps.size.toString() + " apps",
+                    color = Color.White.copy(alpha = 0.62f),
+                    fontSize = 12.sp
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            if (homeApps.isNotEmpty()) {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(
+                        state.gridColumns.substringBefore("x").toIntOrNull()?.coerceIn(3, 5) ?: 4
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentPadding = PaddingValues(bottom = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    items(homeApps, key = { it.packageName }) { app ->
+                        SquircleIcon(
+                            label = app.label,
+                            iconDrawable = app.icon,
+                            onClick = { onAppClick(app) },
+                            size = 52.dp,
+                            isDarkTheme = state.isDarkTheme,
+                            isBlurEnabled = state.isBlurEnabled,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "This page is ready for your apps",
+                            color = Color.White.copy(alpha = 0.92f),
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = "Open the app drawer and hold an app to add it here.",
+                            color = Color.White.copy(alpha = 0.68f),
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(top = 6.dp)
+                        )
+                    }
                 }
             }
 
             Row(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp, bottom = 12.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 repeat(maxOf(state.pages.size, 1)) { index ->
                     Box(
                         Modifier
+                            .padding(horizontal = 4.dp)
                             .size(if (index == state.activePageIndex) 8.dp else 6.dp)
                             .clip(CircleShape)
-                            .background(if (index == state.activePageIndex) Color.White else Color.White.copy(alpha = 0.38f))
+                            .background(
+                                if (index == state.activePageIndex) Color.White
+                                else Color.White.copy(alpha = 0.42f)
+                            )
                             .clickable { onPageSelected(index) }
                     )
                 }
                 Box(
                     modifier = Modifier
-                        .size(22.dp)
+                        .padding(start = 8.dp)
+                        .size(24.dp)
                         .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.18f))
-                        .clickable { onAddPage() },
+                        .background(Color.White.copy(alpha = 0.16f))
+                        .border(1.dp, Color.White.copy(alpha = 0.22f), CircleShape)
+                        .clickable(onClick = onAddPage),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("+", color = Color.White, fontSize = 16.sp, lineHeight = 16.sp)
+                    Text("+", color = Color.White, fontSize = 17.sp, lineHeight = 18.sp)
                 }
             }
 
-            // Keep the drawer gesture on the visible dock surface. A separate
-            // invisible strip at the physical bottom is frequently covered by
-            // Android's gesture-navigation area and therefore never receives touch.
-            Box(
+            FloatingDock(
+                dockApps = state.dockApps,
+                onAppClick = onAppClick,
+                onAppDrawerClick = onAppDrawerClick,
+                isDarkTheme = state.isDarkTheme,
+                isBlurEnabled = state.isBlurEnabled,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(76.dp)
-                    .pointerInput(onSwipeUp) {
-                        var upwardDistance = 0f
-                        detectVerticalDragGestures(
-                            onDragStart = { upwardDistance = 0f },
-                            onDragEnd = {
-                                if (upwardDistance <= -48.dp.toPx()) onSwipeUp()
-                                upwardDistance = 0f
-                            },
-                            onDragCancel = { upwardDistance = 0f },
-                            onVerticalDrag = { change, dragAmount ->
-                                upwardDistance += dragAmount
-                                change.consume()
-                            }
-                        )
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                FloatingDock(
-                    dockApps = state.dockApps,
-                    onAppClick = onAppClick,
-                    onAppDrawerClick = onAppDrawerClick,
-                    isDarkTheme = state.isDarkTheme,
-                    isBlurEnabled = state.isBlurEnabled,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-            }
+                    .padding(bottom = 8.dp)
+            )
         }
-
     }
 }
