@@ -36,36 +36,56 @@ class InstalledAppsRepository(private val context: Context) {
             addCategory(Intent.CATEGORY_LAUNCHER)
         }
 
-        val resolveInfos = pm.queryIntentActivities(intent, PackageManager.MATCH_ALL)
-        val appList = resolveInfos.asSequence().distinctBy { info ->
-            info.activityInfo?.packageName
-        }.mapNotNull { resolveInfo ->
-            val activityInfo = resolveInfo.activityInfo ?: return@mapNotNull null
-            val packageName = activityInfo.packageName
-            val className = activityInfo.name
-            val label = resolveInfo.loadLabel(pm).toString()
-            val iconKey = "$packageName/$className"
-            val icon = iconCache.get(iconKey) ?: resolveInfo.loadIcon(pm).also {
-                iconCache.put(iconKey, it)
+        // Publish labels and package identities first. Loading every launcher icon
+        // synchronously makes the first home-screen render wait on hundreds of assets.
+        val appsWithoutIcons = pm.queryIntentActivities(intent, PackageManager.MATCH_ALL)
+            .asSequence()
+            .distinctBy { info -> info.activityInfo?.packageName }
+            .mapNotNull { resolveInfo ->
+                val activityInfo = resolveInfo.activityInfo ?: return@mapNotNull null
+                val packageName = activityInfo.packageName
+                val category = when {
+                    packageName.contains("youtube") || packageName.contains("spotify") ||
+                        packageName.contains("music") || packageName.contains("photos") -> AppCategory.MEDIA
+                    packageName.contains("message") || packageName.contains("talk") ||
+                        packageName.contains("mail") || packageName.contains("chat") ||
+                        packageName.contains("social") -> AppCategory.SOCIAL
+                    packageName.contains("doc") || packageName.contains("keep") ||
+                        packageName.contains("note") || packageName.contains("drive") ||
+                        packageName.contains("calendar") -> AppCategory.PRODUCTIVITY
+                    else -> AppCategory.UTILITIES
+                }
+
+                AppItem(
+                    packageName = packageName,
+                    className = activityInfo.name,
+                    label = resolveInfo.loadLabel(pm).toString(),
+                    icon = iconCache.get(packageName + "/" + activityInfo.name),
+                    category = category
+                )
             }
+            .sortedBy { it.label.lowercase() }
+            .toList()
 
-            val category = when {
-                packageName.contains("youtube") || packageName.contains("spotify") || packageName.contains("music") || packageName.contains("photos") -> AppCategory.MEDIA
-                packageName.contains("message") || packageName.contains("talk") || packageName.contains("mail") || packageName.contains("chat") || packageName.contains("social") -> AppCategory.SOCIAL
-                packageName.contains("doc") || packageName.contains("keep") || packageName.contains("note") || packageName.contains("drive") || packageName.contains("calendar") -> AppCategory.PRODUCTIVITY
-                else -> AppCategory.UTILITIES
+        _installedApps.value = appsWithoutIcons
+
+        // Resolve icons in small batches and publish incrementally. The home screen
+        // becomes interactive while remaining icons continue loading in the background.
+        appsWithoutIcons.chunked(16).forEach { batch ->
+            val resolvedIcons = batch.map { app ->
+                val key = app.packageName + "/" + app.className
+                val icon = iconCache.get(key) ?: runCatching {
+                    pm.getActivityIcon(android.content.ComponentName(app.packageName, app.className))
+                }.getOrNull()?.also { iconCache.put(key, it) }
+                app.packageName to icon
+            }.toMap()
+
+            val current = _installedApps.value
+            _installedApps.value = current.map { app ->
+                val resolved = resolvedIcons[app.packageName]
+                if (resolved != null) app.copy(icon = resolved) else app
             }
-
-            AppItem(
-                packageName = packageName,
-                className = className,
-                label = label,
-                icon = icon,
-                category = category
-            )
-        }.sortedBy { it.label.lowercase() }.toList()
-
-        _installedApps.value = appList
+        }
     }
 
     fun registerPackageReceiver() {
