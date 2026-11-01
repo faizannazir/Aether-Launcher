@@ -134,7 +134,7 @@ class MainActivity : ComponentActivity() {
                             },
                             onPinApp = {
                                 viewModel.addAppToHomePage(it)
-                                android.widget.Toast.makeText(this, "Added to home screen", android.widget.Toast.LENGTH_SHORT).show()
+                                android.widget.Toast.makeText(this@MainActivity, "Added to home screen", android.widget.Toast.LENGTH_SHORT).show()
                             },
                             onCategorySelect = { viewModel.onCategorySelected(it) },
                             onCloseDrawer = { viewModel.openScreen(LauncherScreen.HOME) },
