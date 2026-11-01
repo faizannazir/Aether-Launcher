@@ -143,8 +143,8 @@ fun GlanceClockHeader(
         Text(
             text = ClockFormatter.formatTime(now, is24Hour),
             color = Color.White,
-            fontSize = 54.sp,
-            lineHeight = 60.sp,
+            fontSize = 48.sp,
+            lineHeight = 52.sp,
             fontWeight = FontWeight.Light,
             letterSpacing = (-2.5).sp,
             modifier = Modifier.padding(top = 2.dp)
@@ -319,7 +319,7 @@ fun HomeScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 10.dp),
+                    .padding(top = 4.dp),
                 verticalAlignment = Alignment.Top
             ) {
                 GlanceClockHeader(
@@ -327,59 +327,40 @@ fun HomeScreen(
                     isBlurEnabled = state.isBlurEnabled,
                     modifier = Modifier
                         .weight(1f)
-                        .padding(top = 8.dp),
+                        .padding(top = 4.dp),
                     onSwipeDown = onSearchClick
                 )
                 IconButton(
+                    onClick = onSearchClick,
+                    modifier = Modifier
+                        .padding(top = 2.dp)
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.16f))
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Search,
+                        contentDescription = "Search apps",
+                        tint = Color.White.copy(alpha = 0.96f)
+                    )
+                }
+                IconButton(
                     onClick = onSettingsClick,
                     modifier = Modifier
-                        .padding(top = 0.dp)
-                        .size(42.dp)
+                        .padding(top = 2.dp)
+                        .size(40.dp)
                         .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.14f))
+                        .background(Color.White.copy(alpha = 0.16f))
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Settings,
                         contentDescription = "Launcher settings",
-                        tint = Color.White.copy(alpha = 0.92f)
+                        tint = Color.White.copy(alpha = 0.96f)
                     )
                 }
             }
 
-            Spacer(Modifier.height(18.dp))
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(22.dp))
-                    .background(Color.White.copy(alpha = 0.15f))
-                    .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(22.dp))
-                    .clickable(onClick = onSearchClick)
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Search,
-                    contentDescription = null,
-                    tint = Color.White.copy(alpha = 0.88f),
-                    modifier = Modifier.size(19.dp)
-                )
-                Text(
-                    text = "Search apps and shortcuts",
-                    color = Color.White.copy(alpha = 0.78f),
-                    fontSize = 14.sp,
-                    modifier = Modifier
-                        .padding(start = 12.dp)
-                        .weight(1f)
-                )
-                Text(
-                    text = "⌕",
-                    color = Color.White.copy(alpha = 0.65f),
-                    fontSize = 18.sp
-                )
-            }
-
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(10.dp))
 
             if (specialItems.isNotEmpty()) {
                 Row(
@@ -424,25 +405,7 @@ fun HomeScreen(
                 Spacer(Modifier.height(14.dp))
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = if (activePage?.pageIndex == 0) "Favourites" else "Home page " + (state.activePageIndex + 1),
-                    color = Color.White.copy(alpha = 0.94f),
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f)
-                )
-                Text(
-                    text = homeApps.size.toString() + " apps",
-                    color = Color.White.copy(alpha = 0.62f),
-                    fontSize = 12.sp
-                )
-            }
-
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(4.dp))
 
             if (homeApps.isNotEmpty()) {
                 LazyVerticalGrid(
@@ -464,6 +427,18 @@ fun HomeScreen(
                             size = 52.dp,
                             isDarkTheme = state.isDarkTheme,
                             isBlurEnabled = state.isBlurEnabled,
+                            labelColor = Color.White,
+                            onLongClick = {
+                                val layoutItem = pageApps.firstOrNull { it.packageName == app.packageName }
+                                    ?: HomeLayoutItem.App(
+                                        id = "app_" + app.packageName,
+                                        position = homeApps.indexOf(app),
+                                        packageName = app.packageName,
+                                        className = app.className
+                                    )
+                                onStartDrag(layoutItem, activePage?.pageIndex ?: state.activePageIndex, layoutItem.position)
+                                onOpenEditMode()
+                            },
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
