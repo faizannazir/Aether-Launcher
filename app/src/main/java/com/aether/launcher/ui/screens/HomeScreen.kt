@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -187,7 +188,49 @@ fun HomeScreen(
                 Text("⌕", color = Color.White.copy(alpha = 0.65f), fontSize = 18.sp)
             }
 
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(14.dp))
+
+            val specialItems = activePage?.items.orEmpty().filter {
+                it is HomeLayoutItem.Folder || it is HomeLayoutItem.ServiceWidget || it is HomeLayoutItem.Widget
+            }
+            if (specialItems.isNotEmpty()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().height(142.dp).padding(horizontal = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    specialItems.take(2).forEach { item ->
+                        Box(Modifier.weight(1f).fillMaxSize()) {
+                            when (item) {
+                                is HomeLayoutItem.Folder -> SmartFolder2x2(
+                                    folder = FolderItem(item.id, item.title, item.appPackages),
+                                    installedApps = state.installedApps,
+                                    isDarkTheme = state.isDarkTheme,
+                                    isBlurEnabled = state.isBlurEnabled,
+                                    onAppClick = onAppClick,
+                                    onOpenFolderModal = { onFolderClick(FolderItem(item.id, item.title, item.appPackages)) }
+                                )
+                                is HomeLayoutItem.ServiceWidget -> HarmonyServiceWidget(
+                                    widgetItem = item,
+                                    isDarkTheme = state.isDarkTheme,
+                                    isBlurEnabled = state.isBlurEnabled,
+                                    onToggleFocus = { onToggleServiceWidgetFocus(item.id) }
+                                )
+                                is HomeLayoutItem.Widget -> if (appWidgetManager != null && appWidgetHost != null) {
+                                    WidgetHostContainer(
+                                        widgetItem = item,
+                                        appWidgetManager = appWidgetManager,
+                                        appWidgetHost = appWidgetHost,
+                                        isDarkTheme = state.isDarkTheme,
+                                        isBlurEnabled = state.isBlurEnabled
+                                    )
+                                }
+                                is HomeLayoutItem.App -> Unit
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+            }
 
             // Real installed apps are shown immediately; saved home items retain their positions.
             val homeApps = remember(state.installedApps, activePage) {
