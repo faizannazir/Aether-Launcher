@@ -6,6 +6,8 @@ import android.text.format.DateFormat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -151,7 +153,36 @@ fun HomeScreen(
             .statusBarsPadding()
             .navigationBarsPadding()
             .pointerInput(Unit) { detectTapGestures(onLongPress = { onOpenEditMode() }) }
-
+            // Horizontal gestures switch desktops; vertical LazyGrid scrolling remains
+            // available because this detector only wins horizontal touch slop.
+            .pointerInput(state.pages.size, state.activePageIndex) {
+                var horizontalDistance = 0f
+                detectHorizontalDragGestures(
+                    onHorizontalDrag = { change, dragAmount ->
+                        horizontalDistance += dragAmount
+                        change.consume()
+                    },
+                    onDragEnd = {
+                        if (horizontalDistance < -56f && state.activePageIndex < state.pages.lastIndex) {
+                            onPageSelected(state.activePageIndex + 1)
+                        } else if (horizontalDistance > 56f && state.activePageIndex > 0) {
+                            onPageSelected(state.activePageIndex - 1)
+                        }
+                        horizontalDistance = 0f
+                    },
+                    onDragCancel = { horizontalDistance = 0f }
+                )
+            }
+            // Pinch-in is the Harmony-style entry gesture for the home editor.
+            .pointerInput(onOpenEditMode) {
+                var editorOpened = false
+                detectTransformGestures { _, _, zoom, _ ->
+                    if (zoom < 0.92f && !editorOpened) {
+                        editorOpened = true
+                        onOpenEditMode()
+                    }
+                }
+            }
     ) {
         IconButton(onClick = onSettingsClick, modifier = Modifier.align(Alignment.TopEnd).padding(top = 2.dp, end = 12.dp)) {
             Icon(Icons.Rounded.Settings, contentDescription = "Launcher settings", tint = Color.White.copy(alpha = 0.9f))
