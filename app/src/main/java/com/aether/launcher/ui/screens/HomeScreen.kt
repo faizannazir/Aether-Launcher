@@ -339,37 +339,39 @@ fun HomeScreen(
                 }
             }
 
-            FloatingDock(
-                dockApps = state.dockApps,
-                onAppClick = onAppClick,
-                onAppDrawerClick = onAppDrawerClick,
-                isDarkTheme = state.isDarkTheme,
-                isBlurEnabled = state.isBlurEnabled,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-
-            // A larger gesture target sits above the system navigation inset.
-            // Vertical-only detection avoids stealing horizontal page swipes.
-            var drawerSwipeDistance by remember { mutableStateOf(0f) }
+            // Keep the drawer gesture on the visible dock surface. A separate
+            // invisible strip at the physical bottom is frequently covered by
+            // Android's gesture-navigation area and therefore never receives touch.
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp)
+                    .height(76.dp)
                     .pointerInput(onSwipeUp) {
+                        var upwardDistance = 0f
                         detectVerticalDragGestures(
-                            onDragStart = { drawerSwipeDistance = 0f },
+                            onDragStart = { upwardDistance = 0f },
                             onDragEnd = {
-                                if (drawerSwipeDistance <= -56.dp.toPx()) onSwipeUp()
-                                drawerSwipeDistance = 0f
+                                if (upwardDistance <= -48.dp.toPx()) onSwipeUp()
+                                upwardDistance = 0f
                             },
-                            onDragCancel = { drawerSwipeDistance = 0f },
+                            onDragCancel = { upwardDistance = 0f },
                             onVerticalDrag = { change, dragAmount ->
-                                drawerSwipeDistance += dragAmount
+                                upwardDistance += dragAmount
                                 change.consume()
                             }
                         )
-                    }
-            )
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                FloatingDock(
+                    dockApps = state.dockApps,
+                    onAppClick = onAppClick,
+                    onAppDrawerClick = onAppDrawerClick,
+                    isDarkTheme = state.isDarkTheme,
+                    isBlurEnabled = state.isBlurEnabled,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+            }
         }
 
     }
