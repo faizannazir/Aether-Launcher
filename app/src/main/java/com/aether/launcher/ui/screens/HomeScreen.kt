@@ -81,6 +81,7 @@ fun GlanceClockHeader(
     isDarkTheme: Boolean,
     isBlurEnabled: Boolean,
     modifier: Modifier = Modifier,
+    onSwipeDown: () -> Unit = {},
     timeProvider: () -> LocalDateTime = { LocalDateTime.now() }
 ) {
     val context = LocalContext.current
@@ -98,7 +99,23 @@ fun GlanceClockHeader(
     val secondary = Color.White.copy(alpha = 0.72f)
 
     Column(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .pointerInput(onSwipeDown) {
+                var distance = 0f
+                detectVerticalDragGestures(
+                    onDragStart = { distance = 0f },
+                    onDragEnd = {
+                        if (distance > 42.dp.toPx()) onSwipeDown()
+                        distance = 0f
+                    },
+                    onDragCancel = { distance = 0f },
+                    onVerticalDrag = { change, amount ->
+                        distance += amount
+                        change.consume()
+                    }
+                )
+            },
         horizontalAlignment = Alignment.Start
     ) {
         Text(
@@ -196,7 +213,8 @@ fun HomeScreen(
             GlanceClockHeader(
                 isDarkTheme = state.isDarkTheme,
                 isBlurEnabled = state.isBlurEnabled,
-                modifier = Modifier.padding(bottom = 16.dp)
+                modifier = Modifier.padding(bottom = 16.dp),
+                onSwipeDown = onSearchClick
             )
 
             Row(
