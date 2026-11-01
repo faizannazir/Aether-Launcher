@@ -362,7 +362,7 @@ fun HomeScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(138.dp),
+                        .height(152.dp),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     specialItems.forEach { item ->
