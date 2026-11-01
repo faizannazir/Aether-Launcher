@@ -53,7 +53,7 @@ class LauncherViewModel(
 
                     current.copy(
                         installedApps = apps,
-                        dockApps = if (current.dockApps.isEmpty()) defaultDock else current.dockApps,
+                        dockApps = refreshDockApps(current.dockApps, apps).ifEmpty { defaultDock },
                         pages = if (current.pages.firstOrNull()?.items.isNullOrEmpty()) {
                             listOf(PageData(0, defaultPageItems))
                         } else current.pages
