@@ -141,7 +141,8 @@ fun AppDrawerScreen(
                             .clickable { onCategorySelect(category) }
                             .glassSurface(
                                 level = if (isSelected) GlassLevel.BALANCED else GlassLevel.SUBTLE,
-                                isDarkTheme = state.isDarkTheme,
+                                size = 44.dp,
+                            isDarkTheme = state.isDarkTheme,
                                 blurEnabled = state.isBlurEnabled,
                                 shape = RoundedCornerShape(20.dp)
                             )
@@ -186,7 +187,7 @@ fun AppDrawerScreen(
                 }
             } else {
                 LazyVerticalGrid(
-                    columns = GridCells.Fixed(4),
+                    columns = GridCells.Fixed(state.gridColumns.substringBefore("x").toIntOrNull()?.coerceIn(3, 5) ?: 4),
                     modifier = Modifier.weight(1f),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalArrangement = Arrangement.spacedBy(16.dp)
