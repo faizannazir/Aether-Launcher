@@ -11,12 +11,14 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.core.view.WindowInsetsControllerCompat
 import com.aether.launcher.data.widget.WidgetHostManager
 import com.aether.launcher.ui.screens.AppDrawerScreen
 import com.aether.launcher.ui.screens.CustomizationSheet
@@ -73,6 +75,15 @@ class MainActivity : ComponentActivity() {
         setContent {
             val state by viewModel.uiState.collectAsState()
 
+            SideEffect {
+                window.statusBarColor = android.graphics.Color.rgb(16, 20, 25)
+                window.navigationBarColor = android.graphics.Color.rgb(16, 20, 25)
+                WindowInsetsControllerCompat(window, window.decorView).apply {
+                    isAppearanceLightStatusBars = false
+                    isAppearanceLightNavigationBars = false
+                }
+            }
+
             AetherLauncherTheme(darkTheme = state.isDarkTheme) {
                 Box(modifier = Modifier.fillMaxSize()) {
                     HomeScreen(
@@ -114,7 +125,8 @@ class MainActivity : ComponentActivity() {
                                 viewModel.openScreen(LauncherScreen.HOME)
                             },
                             onCategorySelect = { viewModel.onCategorySelected(it) },
-                            onCloseDrawer = { viewModel.openScreen(LauncherScreen.HOME) }
+                            onCloseDrawer = { viewModel.openScreen(LauncherScreen.HOME) },
+                        onSettingsClick = { viewModel.openScreen(LauncherScreen.SETTINGS) }
                         )
                     }
 
