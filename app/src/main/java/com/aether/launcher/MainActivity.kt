@@ -104,7 +104,9 @@ class MainActivity : ComponentActivity() {
                         onDropItem = { pos -> viewModel.dropDraggedItem(pos) },
                         onToggleServiceWidgetFocus = { id -> viewModel.toggleServiceWidgetFocus(id) },
                         onSettingsClick = { viewModel.openScreen(LauncherScreen.SETTINGS) },
-                        onSwipeUp = { viewModel.openScreen(LauncherScreen.APP_DRAWER) }
+                        onSwipeUp = { viewModel.openScreen(LauncherScreen.APP_DRAWER) },
+                        onPageSelected = { viewModel.setActivePageIndex(it) },
+                        onAddPage = { viewModel.addHomePage() }
                     )
 
                     if (state.currentScreen == LauncherScreen.SETTINGS) {
@@ -129,6 +131,10 @@ class MainActivity : ComponentActivity() {
                             onAppClick = {
                                 viewModel.launchApp(it)
                                 viewModel.openScreen(LauncherScreen.HOME)
+                            },
+                            onPinApp = {
+                                viewModel.addAppToHomePage(it)
+                                android.widget.Toast.makeText(this, "Added to home screen", android.widget.Toast.LENGTH_SHORT).show()
                             },
                             onCategorySelect = { viewModel.onCategorySelected(it) },
                             onCloseDrawer = { viewModel.openScreen(LauncherScreen.HOME) },

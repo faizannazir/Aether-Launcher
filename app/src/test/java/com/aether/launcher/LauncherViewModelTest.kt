@@ -2,6 +2,7 @@ package com.aether.launcher
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.test.core.app.ApplicationProvider
+import com.aether.launcher.data.model.AppItem
 import com.aether.launcher.data.model.FolderItem
 import com.aether.launcher.data.model.HomeLayoutItem
 import com.aether.launcher.ui.screens.ClockFormatter
@@ -76,6 +77,44 @@ class LauncherViewModelTest {
 
         viewModel.dropDraggedItem(targetPosition = 1)
         assertNull(viewModel.uiState.value.dragState.draggedItem)
+    }
+
+    @Test
+    fun `adding a home page creates and selects a persistent page`() {
+        val initialPageCount = viewModel.uiState.value.pages.size
+
+        viewModel.addHomePage()
+
+        assertEquals(initialPageCount + 1, viewModel.uiState.value.pages.size)
+        assertEquals(initialPageCount, viewModel.uiState.value.activePageIndex)
+        assertEquals(initialPageCount, viewModel.uiState.value.pages.last().pageIndex)
+    }
+
+    @Test
+    fun `pinning an app adds it to the active home page`() {
+        val app = AppItem(
+            packageName = "com.example.pinned",
+            className = "com.example.pinned.MainActivity",
+            label = "Pinned app"
+        )
+
+        viewModel.addHomePage()
+        viewModel.addAppToHomePage(app)
+
+        val activePage = viewModel.uiState.value.pages[viewModel.uiState.value.activePageIndex]
+        val pinned = activePage.items.filterIsInstance<HomeLayoutItem.App>()
+        assertEquals("com.example.pinned", pinned.single().packageName)
+    }
+
+    @Test
+    fun `active page selection ignores invalid indexes`() {
+        viewModel.addHomePage()
+        viewModel.setActivePageIndex(0)
+
+        assertEquals(0, viewModel.uiState.value.activePageIndex)
+
+        viewModel.setActivePageIndex(99)
+        assertEquals(0, viewModel.uiState.value.activePageIndex)
     }
 
     @Test

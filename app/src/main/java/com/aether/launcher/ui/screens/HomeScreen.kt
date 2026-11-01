@@ -132,7 +132,9 @@ fun HomeScreen(
     onDropItem: (Int) -> Unit,
     onToggleServiceWidgetFocus: (String) -> Unit = {},
     onSettingsClick: () -> Unit = {},
-    onSwipeUp: () -> Unit = {}
+    onSwipeUp: () -> Unit = {},
+    onPageSelected: (Int) -> Unit = {},
+    onAddPage: () -> Unit = {}
 ) {
     val background = if (state.isDarkTheme) {
         Brush.verticalGradient(listOf(Color(0xFF101A31), Color(0xFF172B4D), Color(0xFF111827)))
@@ -149,20 +151,7 @@ fun HomeScreen(
             .statusBarsPadding()
             .navigationBarsPadding()
             .pointerInput(Unit) { detectTapGestures(onLongPress = { onOpenEditMode() }) }
-            .pointerInput(onSwipeUp) {
-                var verticalDistance = 0f
-                detectDragGestures(
-                    onDragStart = { verticalDistance = 0f },
-                    onDragEnd = {
-                        if (verticalDistance < -72f) onSwipeUp()
-                        verticalDistance = 0f
-                    },
-                    onDragCancel = { verticalDistance = 0f }
-                ) { change, dragAmount ->
-                    verticalDistance += dragAmount.y
-                    change.consume()
-                }
-            }
+
     ) {
         IconButton(onClick = onSettingsClick, modifier = Modifier.align(Alignment.TopEnd).padding(top = 2.dp, end = 12.dp)) {
             Icon(Icons.Rounded.Settings, contentDescription = "Launcher settings", tint = Color.White.copy(alpha = 0.9f))
@@ -250,7 +239,7 @@ fun HomeScreen(
                 val saved = activePage?.items.orEmpty()
                     .filterIsInstance<HomeLayoutItem.App>()
                     .mapNotNull { appByPackage[it.packageName] }
-                (saved.ifEmpty { state.installedApps.take(12) }).take(12)
+                (saved.ifEmpty { if (activePage?.pageIndex == 0) state.installedApps.take(12) else emptyList() }).take(12)
             }
 
             LazyVerticalGrid(
@@ -283,10 +272,21 @@ fun HomeScreen(
                 repeat(maxOf(state.pages.size, 1)) { index ->
                     Box(
                         Modifier
-                            .size(if (index == state.activePageIndex) 7.dp else 5.dp)
+                            .size(if (index == state.activePageIndex) 8.dp else 6.dp)
                             .clip(CircleShape)
                             .background(if (index == state.activePageIndex) Color.White else Color.White.copy(alpha = 0.38f))
+                            .clickable { onPageSelected(index) }
                     )
+                }
+                Box(
+                    modifier = Modifier
+                        .size(22.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.18f))
+                        .clickable { onAddPage() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("+", color = Color.White, fontSize = 16.sp, lineHeight = 16.sp)
                 }
             }
 
@@ -297,6 +297,28 @@ fun HomeScreen(
                 isDarkTheme = state.isDarkTheme,
                 isBlurEnabled = state.isBlurEnabled,
                 modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            // Keep swipe-up in a dedicated bottom-edge zone so grid scrolling and
+            // long-press interactions do not compete with the drawer gesture.
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(20.dp)
+                    .pointerInput(onSwipeUp) {
+                        var verticalDistance = 0f
+                        detectDragGestures(
+                            onDragStart = { verticalDistance = 0f },
+                            onDragEnd = {
+                                if (verticalDistance < -48f) onSwipeUp()
+                                verticalDistance = 0f
+                            },
+                            onDragCancel = { verticalDistance = 0f }
+                        ) { change, dragAmount ->
+                            verticalDistance += dragAmount.y
+                            change.consume()
+                        }
+                    }
             )
         }
 

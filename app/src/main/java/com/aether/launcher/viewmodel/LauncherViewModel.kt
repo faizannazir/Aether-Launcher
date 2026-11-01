@@ -100,7 +100,60 @@ class LauncherViewModel(
     }
 
     fun setActivePageIndex(index: Int) {
-        _uiState.update { it.copy(activePageIndex = index) }
+        _uiState.update { current ->
+            if (index in current.pages.indices) current.copy(activePageIndex = index) else current
+        }
+    }
+
+    fun addAppToHomePage(app: AppItem) {
+        _uiState.update { current ->
+            val pages = current.pages.toMutableList()
+            val pageIndex = current.activePageIndex.coerceIn(0, pages.lastIndex)
+            val page = pages[pageIndex]
+            if (page.items.filterIsInstance<HomeLayoutItem.App>().any { it.packageName == app.packageName }) {
+                return@update current
+            }
+
+            val occupied = page.items.mapTo(mutableSetOf()) { it.position }
+            val freePosition = (0 until 20).firstOrNull { it !in occupied }
+            if (freePosition != null) {
+                pages[pageIndex] = page.copy(
+                    items = page.items + HomeLayoutItem.App(
+                        id = "app_${app.packageName}",
+                        position = freePosition,
+                        packageName = app.packageName,
+                        className = app.className
+                    )
+                )
+                current.copy(pages = pages)
+            } else {
+                val newPageIndex = (pages.maxOfOrNull { it.pageIndex } ?: -1) + 1
+                pages.add(
+                    PageData(
+                        pageIndex = newPageIndex,
+                        items = listOf(HomeLayoutItem.App(
+                            id = "app_${app.packageName}",
+                            position = 0,
+                            packageName = app.packageName,
+                            className = app.className
+                        ))
+                    )
+                )
+                current.copy(pages = pages, activePageIndex = pages.lastIndex)
+            }
+        }
+        saveCurrentLayout()
+    }
+
+    fun addHomePage() {
+        _uiState.update { current ->
+            val nextIndex = (current.pages.maxOfOrNull { it.pageIndex } ?: -1) + 1
+            current.copy(
+                pages = current.pages + PageData(pageIndex = nextIndex),
+                activePageIndex = current.pages.size
+            )
+        }
+        saveCurrentLayout()
     }
 
     fun onSearchQueryChanged(query: String) {

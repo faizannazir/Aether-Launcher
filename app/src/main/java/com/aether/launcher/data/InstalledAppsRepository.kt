@@ -5,16 +5,18 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
-import android.graphics.Bitmap
+import android.graphics.drawable.Drawable
 import androidx.collection.LruCache
 import com.aether.launcher.data.model.AppCategory
 import com.aether.launcher.data.model.AppItem
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.withContext
 
 class InstalledAppsRepository(private val context: Context) {
@@ -23,13 +25,10 @@ class InstalledAppsRepository(private val context: Context) {
     val installedApps: StateFlow<List<AppItem>> = _installedApps.asStateFlow()
 
     private var packageReceiver: BroadcastReceiver? = null
+    private var packageScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    // Icon bitmap cache to prevent redundant PackageItemInfo.loadIcon allocations
-    private val iconCache = object : LruCache<String, Bitmap>(50 * 1024 * 1024) { // 50MB max
-        override fun sizeOf(key: String, value: Bitmap): Int {
-            return value.byteCount
-        }
-    }
+    // Cache activity icons by component; a launcher package may expose more than one activity.
+    private val iconCache = LruCache<String, Drawable>(256)
 
     suspend fun loadInstalledApps() = withContext(Dispatchers.IO) {
         val pm = context.packageManager
@@ -38,12 +37,17 @@ class InstalledAppsRepository(private val context: Context) {
         }
 
         val resolveInfos = pm.queryIntentActivities(intent, PackageManager.MATCH_ALL)
-        val appList = resolveInfos.mapNotNull { resolveInfo ->
+        val appList = resolveInfos.asSequence().distinctBy { info ->
+            info.activityInfo?.packageName
+        }.mapNotNull { resolveInfo ->
             val activityInfo = resolveInfo.activityInfo ?: return@mapNotNull null
             val packageName = activityInfo.packageName
             val className = activityInfo.name
             val label = resolveInfo.loadLabel(pm).toString()
-            val icon = resolveInfo.loadIcon(pm)
+            val iconKey = "$packageName/$className"
+            val icon = iconCache.get(iconKey) ?: resolveInfo.loadIcon(pm).also {
+                iconCache.put(iconKey, it)
+            }
 
             val category = when {
                 packageName.contains("youtube") || packageName.contains("spotify") || packageName.contains("music") || packageName.contains("photos") -> AppCategory.MEDIA
@@ -59,7 +63,7 @@ class InstalledAppsRepository(private val context: Context) {
                 icon = icon,
                 category = category
             )
-        }.sortedBy { it.label.lowercase() }
+        }.sortedBy { it.label.lowercase() }.toList()
 
         _installedApps.value = appList
     }
@@ -68,7 +72,7 @@ class InstalledAppsRepository(private val context: Context) {
         if (packageReceiver != null) return
         packageReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
-                MainScope().launch {
+                packageScope.launch {
                     loadInstalledApps()
                 }
             }
@@ -79,7 +83,12 @@ class InstalledAppsRepository(private val context: Context) {
             addAction(Intent.ACTION_PACKAGE_CHANGED)
             addDataScheme("package")
         }
-        context.registerReceiver(packageReceiver, filter)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            context.registerReceiver(packageReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("DEPRECATION")
+            context.registerReceiver(packageReceiver, filter)
+        }
     }
 
     fun unregisterPackageReceiver() {
@@ -91,6 +100,8 @@ class InstalledAppsRepository(private val context: Context) {
             }
             packageReceiver = null
         }
+        packageScope.coroutineContext.cancel()
+        packageScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     }
 
     fun launchApp(app: AppItem): Boolean {
