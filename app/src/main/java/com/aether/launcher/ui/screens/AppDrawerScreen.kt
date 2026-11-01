@@ -141,7 +141,6 @@ fun AppDrawerScreen(
                             .clickable { onCategorySelect(category) }
                             .glassSurface(
                                 level = if (isSelected) GlassLevel.BALANCED else GlassLevel.SUBTLE,
-                                size = 44.dp,
                             isDarkTheme = state.isDarkTheme,
                                 blurEnabled = state.isBlurEnabled,
                                 shape = RoundedCornerShape(20.dp)
@@ -197,6 +196,7 @@ fun AppDrawerScreen(
                             label = app.label,
                             iconDrawable = app.icon,
                             onClick = { onAppClick(app) },
+                            size = 44.dp,
                             isDarkTheme = state.isDarkTheme,
                             isBlurEnabled = state.isBlurEnabled
                         )
