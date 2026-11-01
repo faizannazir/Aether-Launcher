@@ -26,6 +26,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -111,8 +113,8 @@ fun GlanceClockHeader(
         Text(
             text = ClockFormatter.formatTime(now, is24Hour),
             color = primary,
-            fontSize = 76.sp,
-            lineHeight = 82.sp,
+            fontSize = 64.sp,
+            lineHeight = 70.sp,
             fontWeight = FontWeight.Light,
             letterSpacing = (-3).sp,
             modifier = Modifier.padding(start = 20.dp, top = 2.dp)
@@ -138,7 +140,8 @@ fun HomeScreen(
     onOpenEditMode: () -> Unit,
     onStartDrag: (HomeLayoutItem, Int, Int) -> Unit,
     onDropItem: (Int) -> Unit,
-    onToggleServiceWidgetFocus: (String) -> Unit = {}
+    onToggleServiceWidgetFocus: (String) -> Unit = {},
+    onSettingsClick: () -> Unit = {}
 ) {
     val background = if (state.isDarkTheme) {
         Brush.verticalGradient(listOf(Color(0xFF101A31), Color(0xFF172B4D), Color(0xFF111827)))
@@ -156,15 +159,19 @@ fun HomeScreen(
             .navigationBarsPadding()
             .pointerInput(Unit) { detectTapGestures(onLongPress = { onOpenEditMode() }) }
     ) {
+        IconButton(onClick = onSettingsClick, modifier = Modifier.align(Alignment.TopEnd).padding(top = 2.dp, end = 12.dp)) {
+            Icon(Icons.Rounded.Settings, contentDescription = "Launcher settings", tint = Color.White.copy(alpha = 0.9f))
+        }
+
         Column(
             modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(Modifier.height(22.dp))
+            Spacer(Modifier.height(18.dp))
             GlanceClockHeader(
                 isDarkTheme = state.isDarkTheme,
                 isBlurEnabled = state.isBlurEnabled,
-                modifier = Modifier.padding(bottom = 20.dp)
+                modifier = Modifier.padding(bottom = 16.dp)
             )
 
             Row(
@@ -190,7 +197,9 @@ fun HomeScreen(
             Spacer(Modifier.height(14.dp))
 
             val specialItems = activePage?.items.orEmpty().filter {
-                it is HomeLayoutItem.Folder || it is HomeLayoutItem.ServiceWidget || it is HomeLayoutItem.Widget
+                (it is HomeLayoutItem.Folder && it.id != "folder_social") ||
+                    (it is HomeLayoutItem.ServiceWidget && it.id != "service_widget_schedule") ||
+                    it is HomeLayoutItem.Widget
             }
             if (specialItems.isNotEmpty()) {
                 Row(
@@ -236,11 +245,11 @@ fun HomeScreen(
                 val saved = activePage?.items.orEmpty()
                     .filterIsInstance<HomeLayoutItem.App>()
                     .mapNotNull { appByPackage[it.packageName] }
-                (saved + state.installedApps.filterNot { app -> saved.any { it.packageName == app.packageName } }).take(16)
+                (saved.ifEmpty { state.installedApps.take(12) }).take(12)
             }
 
             LazyVerticalGrid(
-                columns = GridCells.Fixed(4),
+                columns = GridCells.Fixed(state.gridColumns.substringBefore("x").toIntOrNull()?.coerceIn(3, 5) ?: 4),
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
@@ -253,7 +262,7 @@ fun HomeScreen(
                         label = app.label,
                         iconDrawable = app.icon,
                         onClick = { onAppClick(app) },
-                        size = 54.dp,
+                        size = 46.dp,
                         isDarkTheme = state.isDarkTheme,
                         isBlurEnabled = state.isBlurEnabled,
                         modifier = Modifier.fillMaxWidth()
@@ -282,17 +291,9 @@ fun HomeScreen(
                 onAppDrawerClick = onAppDrawerClick,
                 isDarkTheme = state.isDarkTheme,
                 isBlurEnabled = state.isBlurEnabled,
-                modifier = Modifier.padding(bottom = 10.dp)
+                modifier = Modifier.padding(bottom = 8.dp)
             )
         }
 
-        // Keep real Android widgets and Harmony smart tiles available in edit layouts.
-        val specialItems = activePage?.items.orEmpty().filter {
-            it is HomeLayoutItem.Folder || it is HomeLayoutItem.ServiceWidget || it is HomeLayoutItem.Widget
-        }
-        if (specialItems.isNotEmpty()) {
-            // These items remain accessible from the app drawer/customization flow without
-            // forcing oversized demo cards into the primary launcher grid.
-        }
     }
 }
