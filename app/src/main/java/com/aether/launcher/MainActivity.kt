@@ -189,7 +189,19 @@ class MainActivity : ComponentActivity() {
                                 onDarkThemeToggle = { viewModel.setDarkTheme(it) },
                                 onBlurToggle = { viewModel.setBlurEnabled(it) },
                                 onBlurIntensityChange = { viewModel.setBlurIntensity(it) },
-                                onClose = { viewModel.toggleCustomizationSheet(false) }
+                                onClose = { viewModel.toggleCustomizationSheet(false) },
+                                onAddPage = {
+                                    viewModel.addHomePage()
+                                    viewModel.toggleCustomizationSheet(false)
+                                },
+                                onOpenWidgets = {
+                                    viewModel.toggleCustomizationSheet(false)
+                                    viewModel.toggleWidgetSheet(true)
+                                },
+                                onOpenSettings = {
+                                    viewModel.toggleCustomizationSheet(false)
+                                    viewModel.openScreen(LauncherScreen.SETTINGS)
+                                }
                             )
                         }
                     }
