@@ -109,19 +109,26 @@ fun GlanceClockHeader(
         modifier = modifier
             .fillMaxWidth()
             .pointerInput(onSwipeDown) {
-                var distance = 0f
-                androidx.compose.foundation.gestures.detectVerticalDragGestures(
-                    onDragStart = { distance = 0f },
-                    onDragEnd = {
-                        if (distance > 48.dp.toPx()) onSwipeDown()
-                        distance = 0f
-                    },
-                    onDragCancel = { distance = 0f },
-                    onVerticalDrag = { change, amount ->
-                        distance += amount
-                        change.consume()
-                    }
-                )
+                awaitEachGesture {
+                    val down = awaitFirstDown(
+                        requireUnconsumed = false,
+                        pass = PointerEventPass.Initial
+                    )
+                    var totalY = 0f
+                    var triggered = false
+                    do {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                        if (change.pressed) {
+                            totalY += change.position.y - change.previousPosition.y
+                            if (!triggered && totalY >= 48.dp.toPx()) {
+                                change.consume()
+                                triggered = true
+                                onSwipeDown()
+                            }
+                        }
+                    } while (event.changes.any { it.pressed })
+                }
             },
         horizontalAlignment = Alignment.Start
     ) {
