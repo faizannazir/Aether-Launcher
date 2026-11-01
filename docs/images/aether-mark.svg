@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title">
+<title id="title">Aether Launcher icon</title>
+<defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#1B3458"/><stop offset="1" stop-color="#0B1427"/></linearGradient><linearGradient id="a" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#FFF"/><stop offset="1" stop-color="#9CC8FF"/></linearGradient></defs>
+<rect width="128" height="128" rx="34" fill="url(#bg)"/><circle cx="64" cy="64" r="43" fill="none" stroke="#6EA9E8" stroke-opacity=".3" stroke-width="2"/>
+<path d="M64 27 30 96h13l21-43 21 43h13L64 27Z" fill="url(#a)"/><path d="M49 75h30l6 12H43l6-12Z" fill="#78A9E8"/><circle cx="96" cy="32" r="4" fill="#B8D8FF"/></svg>

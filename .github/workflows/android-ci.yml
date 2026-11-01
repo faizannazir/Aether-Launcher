@@ -1,14 +1,13 @@
 name: Android CI
 
+# Run CI once per pull request update; source-branch pushes are covered by the PR event.
 on:
-  push:
-    branches: [ "main", "feature/**", "fix/**" ]
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:
 
 concurrency:
-  group: android-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: android-ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:

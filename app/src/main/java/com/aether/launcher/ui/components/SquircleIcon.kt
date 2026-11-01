@@ -3,9 +3,10 @@ package com.aether.launcher.ui.components
 import android.graphics.Bitmap
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -39,12 +40,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SquircleIcon(
     label: String,
     iconDrawable: Drawable?,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onLongClick: (() -> Unit)? = null,
     size: Dp = 48.dp,
     showLabel: Boolean = true,
     isDarkTheme: Boolean = false,
@@ -72,8 +75,9 @@ fun SquircleIcon(
                 role = Role.Button
                 contentDescription = accessibleDescription
             }
-            .clickable(
+            .combinedClickable(
                 onClick = onClick,
+                onLongClick = onLongClick,
                 onClickLabel = accessibleDescription
             )
             .padding(2.dp)

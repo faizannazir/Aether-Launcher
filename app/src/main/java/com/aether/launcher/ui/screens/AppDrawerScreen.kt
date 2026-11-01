@@ -48,6 +48,7 @@ import com.aether.launcher.ui.components.SquircleIcon
 fun AppDrawerScreen(
     state: com.aether.launcher.viewmodel.LauncherState,
     onAppClick: (AppItem) -> Unit,
+    onPinApp: (AppItem) -> Unit = {},
     onCategorySelect: (AppCategory) -> Unit,
     onCloseDrawer: () -> Unit,
     onSettingsClick: () -> Unit = {}
@@ -193,6 +194,7 @@ fun AppDrawerScreen(
                             label = app.label,
                             iconDrawable = app.icon,
                             onClick = { onAppClick(app) },
+                            onLongClick = { onPinApp(app) },
                             size = 44.dp,
                             isDarkTheme = state.isDarkTheme,
                             isBlurEnabled = state.isBlurEnabled
