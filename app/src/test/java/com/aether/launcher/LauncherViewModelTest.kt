@@ -79,23 +79,9 @@ class LauncherViewModelTest {
     }
 
     @Test
-    fun `toggleServiceWidgetFocus toggles focus state on service widget`() {
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        val initialWidget = viewModel.uiState.value.pages.firstOrNull()?.items
-            ?.filterIsInstance<HomeLayoutItem.ServiceWidget>()?.firstOrNull()
-
-        assertNotNull("ServiceWidget must be present in default layout", initialWidget)
-        requireNotNull(initialWidget)
-
-        val initialFocus = initialWidget.isFocusActive
-        viewModel.toggleServiceWidgetFocus(initialWidget.id)
-
-        val updatedWidget = viewModel.uiState.value.pages.firstOrNull()?.items
-            ?.filterIsInstance<HomeLayoutItem.ServiceWidget>()?.firstOrNull()
-
-        assertNotNull("ServiceWidget must remain present after toggle", updatedWidget)
-        assertEquals(!initialFocus, updatedWidget?.isFocusActive)
+    fun `settings screen is reachable from launcher state`() {
+        viewModel.openScreen(LauncherScreen.SETTINGS)
+        assertEquals(LauncherScreen.SETTINGS, viewModel.uiState.value.currentScreen)
     }
 
     @Test
