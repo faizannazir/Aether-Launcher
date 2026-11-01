@@ -41,3 +41,17 @@ data class LauncherState(
     val blurIntensity: Float = 0.75f,
     val gridColumns: String = "4x5"
 )
+
+/** Rebind dock entries to the latest installed-app objects so asynchronously loaded icons
+ * and package metadata replace the initial icon-less placeholders. Removed apps disappear. */
+internal fun refreshDockApps(
+    dockApps: List<AppItem>,
+    installedApps: List<AppItem>
+): List<AppItem> {
+    val installedByPackage = installedApps.associateBy(AppItem::packageName)
+    return if (dockApps.isEmpty()) {
+        installedApps.take(4)
+    } else {
+        dockApps.mapNotNull { dockApp -> installedByPackage[dockApp.packageName] }
+    }
+}
