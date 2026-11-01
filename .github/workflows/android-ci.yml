@@ -3,7 +3,7 @@ name: Android CI
 # Run CI once per pull request update; source-branch pushes are covered by the PR event.
 on:
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "fix/launcher-performance-drawer-pages-install" ]
   workflow_dispatch:
 
 concurrency:
