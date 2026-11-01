@@ -8,6 +8,7 @@ import com.aether.launcher.data.model.HomeLayoutItem
 import com.aether.launcher.ui.screens.ClockFormatter
 import com.aether.launcher.viewmodel.LauncherScreen
 import com.aether.launcher.viewmodel.LauncherViewModel
+import com.aether.launcher.viewmodel.refreshDockApps
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -44,6 +45,23 @@ class LauncherViewModelTest {
     @After
     fun tearDown() {
         Dispatchers.resetMain()
+    }
+
+    @Test
+    fun `dock entries refresh to latest installed app icon instances`() {
+        val placeholder = AppItem(
+            packageName = "com.example.dock",
+            className = "com.example.dock.MainActivity",
+            label = "Dock app"
+        )
+        val icon = android.graphics.drawable.ColorDrawable(android.graphics.Color.RED)
+        val loaded = placeholder.copy(icon = icon)
+
+        val refreshed = refreshDockApps(listOf(placeholder), listOf(loaded))
+
+        assertEquals(1, refreshed.size)
+        assertEquals("com.example.dock", refreshed.single().packageName)
+        assertEquals(icon, refreshed.single().icon)
     }
 
     @Test
