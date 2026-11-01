@@ -11,7 +11,7 @@ A lightweight native Android launcher with a clean home screen, searchable app d
 ![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-native-7F52FF?logo=kotlin&logoColor=white)
 ![Jetpack Compose](https://img.shields.io/badge/UI-Jetpack%20Compose-4285F4?logo=jetpackcompose&logoColor=white)
-![CI](https://github.com/faizannazir/Aether-Launcher/actions/workflows/android.yml/badge.svg)
+![CI](https://github.com/faizannazir/Aether-Launcher/actions/workflows/android-ci.yml/badge.svg)
 
 </div>
 
