@@ -6,7 +6,7 @@ import android.text.format.DateFormat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -299,25 +299,26 @@ fun HomeScreen(
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 
-            // Keep swipe-up in a dedicated bottom-edge zone so grid scrolling and
-            // long-press interactions do not compete with the drawer gesture.
+            // A larger gesture target sits above the system navigation inset.
+            // Vertical-only detection avoids stealing horizontal page swipes.
+            var drawerSwipeDistance by remember { mutableStateOf(0f) }
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(20.dp)
+                    .height(56.dp)
                     .pointerInput(onSwipeUp) {
-                        var verticalDistance = 0f
-                        detectDragGestures(
-                            onDragStart = { verticalDistance = 0f },
+                        detectVerticalDragGestures(
+                            onDragStart = { drawerSwipeDistance = 0f },
                             onDragEnd = {
-                                if (verticalDistance < -48f) onSwipeUp()
-                                verticalDistance = 0f
+                                if (drawerSwipeDistance <= -56.dp.toPx()) onSwipeUp()
+                                drawerSwipeDistance = 0f
                             },
-                            onDragCancel = { verticalDistance = 0f }
-                        ) { change, dragAmount ->
-                            verticalDistance += dragAmount.y
-                            change.consume()
-                        }
+                            onDragCancel = { drawerSwipeDistance = 0f },
+                            onVerticalDrag = { change, dragAmount ->
+                                drawerSwipeDistance += dragAmount
+                                change.consume()
+                            }
+                        )
                     }
             )
         }
