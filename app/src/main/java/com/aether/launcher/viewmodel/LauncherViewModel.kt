@@ -42,13 +42,34 @@ class LauncherViewModel(
             repository.installedApps.collectLatest { apps ->
                 _uiState.update { current ->
                     val defaultDock = apps.take(4)
-                    val defaultPageItems = apps.take(12).mapIndexed { index, app ->
-                        HomeLayoutItem.App(
-                            id = "app_${app.packageName}",
-                            position = index,
-                            packageName = app.packageName,
-                            className = app.className
+                    val defaultPageItems = mutableListOf<HomeLayoutItem>()
+                    if (apps.isNotEmpty()) {
+                        defaultPageItems += HomeLayoutItem.ServiceWidget(
+                            id = "service_dashboard",
+                            position = 0,
+                            title = "Quick controls",
+                            subtitle = "Focus and system settings"
                         )
+
+                        if (apps.size >= 4) {
+                            defaultPageItems += HomeLayoutItem.Folder(
+                                id = "folder_everyday",
+                                position = 1,
+                                title = "Everyday",
+                                appPackages = apps.take(4).map { it.packageName }
+                            )
+                        }
+
+                        val desktopApps = if (apps.size >= 4) apps.drop(4).take(8) else apps.take(8)
+                        val firstAppPosition = if (apps.size >= 4) 2 else 1
+                        defaultPageItems += desktopApps.mapIndexed { index, app ->
+                            HomeLayoutItem.App(
+                                id = "app_${app.packageName}",
+                                position = firstAppPosition + index,
+                                packageName = app.packageName,
+                                className = app.className
+                            )
+                        }
                     }
 
                     current.copy(
