@@ -1,22 +1,34 @@
 # Aether Launcher
 
-A lightweight native Android home-screen replacement inspired by the visual language of Huawei HarmonyOS 4. It is an independent Android launcher, not a Huawei system component and does not copy proprietary assets.
+A lightweight, native Android home-screen replacement with an original interface inspired by the visual language and spatial layout of Huawei HarmonyOS. This is an independent Android launcher, not Huawei software and not a system UI replacement.
 
-## What it does
+## Current launcher features
 
-- Registers as an Android HOME activity and can be selected as the device's default launcher.
-- Discovers installed launchable apps and launches them directly.
-- Presents a clean Harmony-inspired home screen with a large clock, date, app grid, search entry and floating dock.
-- Includes an app drawer, app search, folders, customization and Android AppWidgetHost integration.
-- Uses native Jetpack Compose surfaces and restrained translucency to keep scrolling responsive.
+- Android HOME activity registration and an explicit in-app default Home setup flow.
+- Live clock/date, compact installed-app grid, app drawer, search and floating dock.
+- Real launchable app discovery through Android package visibility queries.
+- Saved home layout, folders and Android AppWidgetHost support.
+- Shared launcher preferences for dark appearance, translucency and grid columns.
+- Native Android system Settings shortcut and coordinated status/navigation bar appearance while Aether is visible.
 
-## Make it the default launcher
+## Default Home app
 
-1. Install and open Aether Launcher.
-2. When Android asks, select Aether Launcher as the Home app.
-3. If Android does not show the chooser, open Settings → Apps → Default apps → Home app and select Aether Launcher.
+Open Aether → Settings → Set as default launcher. Android displays its system confirmation. A third-party launcher cannot silently take over the Home role.
 
-The app cannot silently replace the current launcher. Android controls the HOME role and requires the user to approve the change.
+## Install and update
+
+The application ID is `com.aether.launcher`. The version code has been incremented to 2.
+
+Android accepts an update over an existing installation only when the new APK is signed with the same signing certificate as the installed APK and has a higher version code. The release workflow therefore requires the established signing key in GitHub Actions secrets:
+
+- `KEYSTORE_BASE64`
+- `KEYSTORE_PASSWORD`
+- `KEY_ALIAS`
+- `KEY_PASSWORD`
+
+**Do not generate a new signing key for an update.** If the original signing key is unavailable, Android cannot install a differently signed APK over the existing app. Uninstalling first removes the app's local data.
+
+Debug APKs are signed with the debug key and are not interchangeable with a release-signed installation.
 
 ## Build
 
@@ -25,10 +37,13 @@ Requirements: JDK 21 and Android SDK.
 ```bash
 ./gradlew test
 ./gradlew assembleDebug
+./gradlew assembleRelease
 ```
 
-Debug APK: `app/build/outputs/apk/debug/app-debug.apk`.
+## Android system boundaries
 
-## Design direction
+A launcher can replace the Home screen and provide its own app drawer, launcher settings, widgets and in-app navigation. Android and the device manufacturer retain ownership of global Settings, Quick Settings, lock screen, notification shade, recents and system gesture navigation. A launcher may open supported system settings screens and style its own status/navigation bars; it cannot replace the operating system's privileged interfaces.
 
-The interface takes inspiration from HarmonyOS 4's spacious composition, rounded icon language, large typography and translucent controls. It uses original layouts and Android system app icons rather than Huawei branding or proprietary assets.
+## Google Play Protect
+
+This project does not use a hidden installer, root access, accessibility-based control or device-admin takeover. Package visibility is scoped to launcher activities rather than requesting `QUERY_ALL_PACKAGES`. These choices reduce unnecessary permissions, but only Google can determine or clear a Play Protect warning. A false-positive report must be submitted to Google with the exact APK and detection details.
