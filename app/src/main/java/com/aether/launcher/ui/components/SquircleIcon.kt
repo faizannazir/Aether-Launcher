@@ -45,7 +45,7 @@ fun SquircleIcon(
     iconDrawable: Drawable?,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    size: Dp = 56.dp,
+    size: Dp = 48.dp,
     showLabel: Boolean = true,
     isDarkTheme: Boolean = false,
     isBlurEnabled: Boolean = true
@@ -82,7 +82,7 @@ fun SquircleIcon(
             contentAlignment = Alignment.Center,
             modifier = Modifier
                 .size(size)
-                .shadow(elevation = 1.dp, shape = RoundedCornerShape(16.dp), clip = false)
+                .clip(RoundedCornerShape(14.dp))
         ) {
             if (bitmap != null) {
                 Image(
