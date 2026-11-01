@@ -76,11 +76,16 @@ class MainActivity : ComponentActivity() {
             val state by viewModel.uiState.collectAsState()
 
             SideEffect {
-                window.statusBarColor = android.graphics.Color.rgb(16, 20, 25)
-                window.navigationBarColor = android.graphics.Color.rgb(16, 20, 25)
+                val systemBarColor = if (state.isDarkTheme) {
+                    android.graphics.Color.rgb(16, 20, 25)
+                } else {
+                    android.graphics.Color.rgb(244, 246, 248)
+                }
+                window.statusBarColor = systemBarColor
+                window.navigationBarColor = systemBarColor
                 WindowInsetsControllerCompat(window, window.decorView).apply {
-                    isAppearanceLightStatusBars = false
-                    isAppearanceLightNavigationBars = false
+                    isAppearanceLightStatusBars = !state.isDarkTheme
+                    isAppearanceLightNavigationBars = !state.isDarkTheme
                 }
             }
 
@@ -98,7 +103,8 @@ class MainActivity : ComponentActivity() {
                         onStartDrag = { item, page, pos -> viewModel.startDrag(item, page, pos) },
                         onDropItem = { pos -> viewModel.dropDraggedItem(pos) },
                         onToggleServiceWidgetFocus = { id -> viewModel.toggleServiceWidgetFocus(id) },
-                        onSettingsClick = { viewModel.openScreen(LauncherScreen.SETTINGS) }
+                        onSettingsClick = { viewModel.openScreen(LauncherScreen.SETTINGS) },
+                        onSwipeUp = { viewModel.openScreen(LauncherScreen.APP_DRAWER) }
                     )
 
                     if (state.currentScreen == LauncherScreen.SETTINGS) {
