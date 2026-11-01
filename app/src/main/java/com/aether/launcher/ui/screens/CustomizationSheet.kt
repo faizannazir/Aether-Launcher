@@ -11,6 +11,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Widgets
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -31,7 +34,10 @@ fun CustomizationSheet(
     onDarkThemeToggle: (Boolean) -> Unit,
     onBlurToggle: (Boolean) -> Unit,
     onBlurIntensityChange: (Float) -> Unit,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    onAddPage: () -> Unit,
+    onOpenWidgets: () -> Unit,
+    onOpenSettings: () -> Unit
 ) {
     val textColor = if (state.isDarkTheme) Color.White else Color(0xFF191C1E)
 
@@ -52,7 +58,7 @@ fun CustomizationSheet(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = "Customization & Styles",
+                    text = "Home screen editor",
                     style = MaterialTheme.typography.headlineMedium,
                     color = textColor,
                     modifier = Modifier.weight(1f)
@@ -64,6 +70,31 @@ fun CustomizationSheet(
                     tint = textColor,
                     modifier = Modifier.clickable(onClick = onClose)
                 )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = "Manage your desktop",
+                style = MaterialTheme.typography.bodyMedium,
+                color = textColor.copy(alpha = 0.68f)
+            )
+            Spacer(modifier = Modifier.height(14.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
+            ) {
+                Button(onClick = onAddPage, modifier = Modifier.weight(1f)) {
+                    Icon(Icons.Rounded.Add, contentDescription = null)
+                    Text(" Page")
+                }
+                Button(onClick = onOpenWidgets, modifier = Modifier.weight(1f)) {
+                    Icon(Icons.Rounded.Widgets, contentDescription = null)
+                    Text(" Widgets")
+                }
+                Button(onClick = onOpenSettings, modifier = Modifier.weight(1f)) {
+                    Icon(Icons.Rounded.Settings, contentDescription = null)
+                    Text(" Settings")
+                }
             }
 
             Spacer(modifier = Modifier.height(20.dp))
