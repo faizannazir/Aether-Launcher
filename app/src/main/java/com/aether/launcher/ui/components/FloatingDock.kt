@@ -59,7 +59,7 @@ fun FloatingDock(
                 showLabel = false,
                 isDarkTheme = isDarkTheme,
                 isBlurEnabled = isBlurEnabled,
-                size = 50.dp
+                size = 42.dp
             )
         }
 
@@ -67,7 +67,7 @@ fun FloatingDock(
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
-                .size(50.dp)
+                .size(44.dp)
                 .clip(RoundedCornerShape(16.dp))
                 .background(if (isDarkTheme) Color(0x33FFFFFF) else Color(0x26FFFFFF))
                 .semantics(mergeDescendants = true) {
@@ -83,7 +83,7 @@ fun FloatingDock(
                 imageVector = Icons.Rounded.GridView,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(28.dp)
+                modifier = Modifier.size(24.dp)
             )
         }
     }

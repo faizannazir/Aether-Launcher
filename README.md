@@ -1,59 +1,49 @@
-# Aether Launcher — Next-Generation Android Launcher for Google Pixel
+# Aether Launcher
 
-Aether Launcher is a lightweight, ultra-fast, native Android launcher optimized for Google Pixel devices. It combines the spatial glassmorphism and depth of **Huawei HarmonyOS** with the wallpaper-first simplicity and zero-latency usability of **Google Pixel Material You**, accompanied by **Nothing OS-inspired typography**.
+A lightweight, native Android home-screen replacement with an original interface inspired by the visual language and spatial layout of Huawei HarmonyOS. This is an independent Android launcher, not Huawei software and not a system UI replacement.
 
----
+## Current launcher features
 
-## Key Features
+- Android HOME activity registration and an explicit in-app default Home setup flow.
+- Live clock/date, compact installed-app grid, app drawer, search and floating dock.
+- Real launchable app discovery through Android package visibility queries.
+- Saved home layout, folders and Android AppWidgetHost support.
+- Shared launcher preferences for dark appearance, translucency and grid columns.
+- Native Android system Settings shortcut and coordinated status/navigation bar appearance while Aether is visible.
 
-- **Wallpaper-First Home Screen:** 3D crystal sculpture ambient background with an oversized `10:08` geometric clock floating directly on the wallpaper (no rectangular card boundaries).
-- **Floating Translucent Glass Dock:** Physical glass container holding 5 quick-access favorite apps with multi-pass Gaussian blur, top specular highlight, and realistic ground shadow.
-- **App Drawer & Category Filtering:** Full-screen Level 3 glass overlay with search, quick category chips (*Social, Productivity, Media, Utilities*), and alphabetical app list.
-- **Responsive App Search:** Sub-5ms fuzzy search for installed applications with Gboard-inspired dark glass keyboard overlay.
-- **Home Screen Customization & Drag-and-Drop:** Long-press to edit, reorder apps/widgets, and auto-create folders by dropping an app onto another.
-- **Native Android Widgets:** Integrated `AppWidgetHost` and `AppWidgetManager` with `WidgetPickerSheet` for placing, configuring, and restoring real system widgets.
-- **Jetpack DataStore Layout Persistence:** Stores pages, folders, dock items, and widget IDs safely without frame lag during animations.
-- **3-Tier Glass Material Engine:** Hardware-accelerated `RenderEffect` Kawase blur on API 31+ with automatic low-power/battery saver fallback surfaces.
+## Default Home app
 
----
+Open Aether → Settings → Set as default launcher. Android displays its system confirmation. A third-party launcher cannot silently take over the Home role.
 
-## Build Prerequisites
+## Install and update
 
-- **Java Development Kit (JDK):** Version 21 (OpenJDK / Temurin).
-- **Android SDK:** Compile SDK 35, Min SDK 26, Target SDK 35.
-- **Gradle:** Version 8.8 (using Kotlin 1.9.22).
+The application ID is `com.aether.launcher`. The version code has been incremented to 2.
 
----
+Android accepts an update over an existing installation only when the new APK is signed with the same signing certificate as the installed APK and has a higher version code. The release workflow therefore requires the established signing key in GitHub Actions secrets:
 
-## Local Development & Build Commands
+- `KEYSTORE_BASE64`
+- `KEYSTORE_PASSWORD`
+- `KEY_ALIAS`
+- `KEY_PASSWORD`
 
-### Assemble Debug APK
-```bash
-./gradlew assembleDebug
-```
-Output APK path: `app/build/outputs/apk/debug/app-debug.apk`
+**Do not generate a new signing key for an update.** If the original signing key is unavailable, Android cannot install a differently signed APK over the existing app. Uninstalling first removes the app's local data.
 
-### Run Unit Tests
+Debug APKs are signed with the debug key and are not interchangeable with a release-signed installation.
+
+## Build
+
+Requirements: JDK 21 and Android SDK.
+
 ```bash
 ./gradlew test
-```
-
-### Build Release APK
-```bash
+./gradlew assembleDebug
 ./gradlew assembleRelease
 ```
 
----
+## Android system boundaries
 
-## GitHub Actions CI & Release Workflows
+A launcher can replace the Home screen and provide its own app drawer, launcher settings, widgets and in-app navigation. Android and the device manufacturer retain ownership of global Settings, Quick Settings, lock screen, notification shade, recents and system gesture navigation. A launcher may open supported system settings screens and style its own status/navigation bars; it cannot replace the operating system's privileged interfaces.
 
-- **CI Workflow (`.github/workflows/android-ci.yml`):** Automatically runs unit tests and builds the debug APK artifact on pull requests and pushes to `main`.
-- **Release Workflow (`.github/workflows/android-release.yml`):** Automatically triggers on git tags (`v*`), builds the release APK, signs it using optional repository secrets (`KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`), and creates a GitHub Release with changelog artifacts.
+## Google Play Protect
 
----
-
-## Project Documentation
-
-- [`DESIGN.md`](DESIGN.md): Design system tokens, color palettes, glass material levels, and typography scales.
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): Jetpack Compose reactive architecture, ViewModel, DataStore persistence, and widget host integration.
-- [`docs/DESIGN_VALIDATION.md`](docs/DESIGN_VALIDATION.md): Test matrix, screenshot validation framework, and benchmark results.
+This project does not use a hidden installer, root access, accessibility-based control or device-admin takeover. Package visibility is scoped to launcher activities rather than requesting `QUERY_ALL_PACKAGES`. These choices reduce unnecessary permissions, but only Google can determine or clear a Play Protect warning. A false-positive report must be submitted to Google with the exact APK and detection details.

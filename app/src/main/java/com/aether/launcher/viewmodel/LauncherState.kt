@@ -10,7 +10,8 @@ enum class LauncherScreen {
     HOME,
     APP_DRAWER,
     SEARCH_OVERLAY,
-    EDIT_MODE
+    EDIT_MODE,
+    SETTINGS
 }
 
 data class DragState(

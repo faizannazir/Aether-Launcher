@@ -11,15 +11,20 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.core.view.WindowInsetsControllerCompat
 import com.aether.launcher.data.widget.WidgetHostManager
 import com.aether.launcher.ui.screens.AppDrawerScreen
 import com.aether.launcher.ui.screens.CustomizationSheet
 import com.aether.launcher.ui.screens.FolderModal
 import com.aether.launcher.ui.screens.HomeScreen
+import com.aether.launcher.ui.screens.LauncherSettingsScreen
 import com.aether.launcher.ui.screens.SearchOverlay
 import com.aether.launcher.ui.screens.WidgetPickerSheet
 import com.aether.launcher.ui.theme.AetherLauncherTheme
@@ -32,6 +37,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var widgetHostManager: WidgetHostManager
 
     private var pendingWidgetInfo: AppWidgetProviderInfo? = null
+    private var isDefaultHome by mutableStateOf(false)
 
     private val bindWidgetLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -64,9 +70,24 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         widgetHostManager = WidgetHostManager(applicationContext)
+        isDefaultHome = isDefaultHomeApp()
 
         setContent {
             val state by viewModel.uiState.collectAsState()
+
+            SideEffect {
+                val systemBarColor = if (state.isDarkTheme) {
+                    android.graphics.Color.rgb(16, 20, 25)
+                } else {
+                    android.graphics.Color.rgb(244, 246, 248)
+                }
+                window.statusBarColor = systemBarColor
+                window.navigationBarColor = systemBarColor
+                WindowInsetsControllerCompat(window, window.decorView).apply {
+                    isAppearanceLightStatusBars = !state.isDarkTheme
+                    isAppearanceLightNavigationBars = !state.isDarkTheme
+                }
+            }
 
             AetherLauncherTheme(darkTheme = state.isDarkTheme) {
                 Box(modifier = Modifier.fillMaxSize()) {
@@ -81,8 +102,26 @@ class MainActivity : ComponentActivity() {
                         onOpenEditMode = { viewModel.toggleCustomizationSheet(true) },
                         onStartDrag = { item, page, pos -> viewModel.startDrag(item, page, pos) },
                         onDropItem = { pos -> viewModel.dropDraggedItem(pos) },
-                        onToggleServiceWidgetFocus = { id -> viewModel.toggleServiceWidgetFocus(id) }
+                        onToggleServiceWidgetFocus = { id -> viewModel.toggleServiceWidgetFocus(id) },
+                        onSettingsClick = { viewModel.openScreen(LauncherScreen.SETTINGS) },
+                        onSwipeUp = { viewModel.openScreen(LauncherScreen.APP_DRAWER) }
                     )
+
+                    if (state.currentScreen == LauncherScreen.SETTINGS) {
+                        LauncherSettingsScreen(
+                            state = state,
+                            isDefaultLauncher = isDefaultHome,
+                            onBack = { viewModel.openScreen(LauncherScreen.HOME) },
+                            onSetDefaultLauncher = { requestDefaultHomeRole() },
+                            onOpenSystemSettings = {
+                                startActivity(Intent(android.provider.Settings.ACTION_SETTINGS))
+                            },
+                            onDarkThemeChange = { viewModel.setDarkTheme(it) },
+                            onBlurChange = { viewModel.setBlurEnabled(it) },
+                            onBlurIntensityChange = { viewModel.setBlurIntensity(it) },
+                            onGridColumnsChange = { viewModel.setGridColumns(it) }
+                        )
+                    }
 
                     if (state.currentScreen == LauncherScreen.APP_DRAWER) {
                         AppDrawerScreen(
@@ -92,7 +131,8 @@ class MainActivity : ComponentActivity() {
                                 viewModel.openScreen(LauncherScreen.HOME)
                             },
                             onCategorySelect = { viewModel.onCategorySelected(it) },
-                            onCloseDrawer = { viewModel.openScreen(LauncherScreen.HOME) }
+                            onCloseDrawer = { viewModel.openScreen(LauncherScreen.HOME) },
+                        onSettingsClick = { viewModel.openScreen(LauncherScreen.SETTINGS) }
                         )
                     }
 
@@ -174,6 +214,22 @@ class MainActivity : ComponentActivity() {
         } catch (e: Exception) {
             val intent = Intent(android.provider.Settings.ACTION_SETTINGS)
             startActivity(intent)
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        isDefaultHome = isDefaultHomeApp()
+    }
+
+    private fun isDefaultHomeApp(): Boolean {
+        return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            getSystemService(android.app.role.RoleManager::class.java)
+                ?.isRoleHeld(android.app.role.RoleManager.ROLE_HOME) == true
+        } else {
+            val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+            packageManager.resolveActivity(intent, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY)
+                ?.activityInfo?.packageName == packageName
         }
     }
 

@@ -22,7 +22,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -47,7 +49,8 @@ fun AppDrawerScreen(
     state: com.aether.launcher.viewmodel.LauncherState,
     onAppClick: (AppItem) -> Unit,
     onCategorySelect: (AppCategory) -> Unit,
-    onCloseDrawer: () -> Unit
+    onCloseDrawer: () -> Unit,
+    onSettingsClick: () -> Unit = {}
 ) {
     var drawerSearchQuery by remember { mutableStateOf("") }
     val textColor = if (state.isDarkTheme) Color.White else Color(0xFF191C1E)
@@ -76,17 +79,11 @@ fun AppDrawerScreen(
                     modifier = Modifier.weight(1f)
                 )
 
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .clickable(onClick = onCloseDrawer)
-                        .padding(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Close,
-                        contentDescription = "Close",
-                        tint = textColor
-                    )
+                IconButton(onClick = onSettingsClick) {
+                    Icon(Icons.Rounded.Settings, contentDescription = "Launcher settings", tint = textColor)
+                }
+                IconButton(onClick = onCloseDrawer) {
+                    Icon(Icons.Rounded.Close, contentDescription = "Close", tint = textColor)
                 }
             }
 
@@ -141,7 +138,7 @@ fun AppDrawerScreen(
                             .clickable { onCategorySelect(category) }
                             .glassSurface(
                                 level = if (isSelected) GlassLevel.BALANCED else GlassLevel.SUBTLE,
-                                isDarkTheme = state.isDarkTheme,
+                            isDarkTheme = state.isDarkTheme,
                                 blurEnabled = state.isBlurEnabled,
                                 shape = RoundedCornerShape(20.dp)
                             )
@@ -186,7 +183,7 @@ fun AppDrawerScreen(
                 }
             } else {
                 LazyVerticalGrid(
-                    columns = GridCells.Fixed(4),
+                    columns = GridCells.Fixed(state.gridColumns.substringBefore("x").toIntOrNull()?.coerceIn(3, 5) ?: 4),
                     modifier = Modifier.weight(1f),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -196,6 +193,7 @@ fun AppDrawerScreen(
                             label = app.label,
                             iconDrawable = app.icon,
                             onClick = { onAppClick(app) },
+                            size = 44.dp,
                             isDarkTheme = state.isDarkTheme,
                             isBlurEnabled = state.isBlurEnabled
                         )

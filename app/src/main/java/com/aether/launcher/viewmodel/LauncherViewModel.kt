@@ -41,39 +41,13 @@ class LauncherViewModel(
         viewModelScope.launch {
             repository.installedApps.collectLatest { apps ->
                 _uiState.update { current ->
-                    val defaultDock = apps.take(5)
-                    val defaultPageItems = mutableListOf<HomeLayoutItem>()
-
-                    // HarmonyOS 2x2 Service Widget at position 0
-                    defaultPageItems.add(
-                        HomeLayoutItem.ServiceWidget(
-                            id = "service_widget_schedule",
-                            position = 0,
-                            title = "System Dashboard",
-                            subtitle = "Quick Controls & Settings",
-                            isFocusActive = true
-                        )
-                    )
-
-                    // HarmonyOS 2x2 Smart Folder at position 1
-                    defaultPageItems.add(
-                        HomeLayoutItem.Folder(
-                            id = "folder_social",
-                            position = 1,
-                            title = "Social & Media",
-                            appPackages = apps.take(4).map { it.packageName }
-                        )
-                    )
-
-                    // Remaining apps
-                    apps.drop(4).take(8).forEachIndexed { index, app ->
-                        defaultPageItems.add(
-                            HomeLayoutItem.App(
-                                id = "app_${app.packageName}",
-                                position = index + 2,
-                                packageName = app.packageName,
-                                className = app.className
-                            )
+                    val defaultDock = apps.take(4)
+                    val defaultPageItems = apps.take(12).mapIndexed { index, app ->
+                        HomeLayoutItem.App(
+                            id = "app_${app.packageName}",
+                            position = index,
+                            packageName = app.packageName,
+                            className = app.className
                         )
                     }
 
