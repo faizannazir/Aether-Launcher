@@ -72,12 +72,36 @@ class LauncherViewModel(
                         }
                     }
 
+                    val firstPage = current.pages.firstOrNull()
+                    val existingPageApps = firstPage?.items
+                        ?.filterIsInstance<HomeLayoutItem.App>()
+                        ?.sortedBy { it.position }
+                        .orEmpty()
+                    val expectedDefaultApps = apps.take(12)
+                    val isUntouchedDefaultLayout = firstPage != null &&
+                        firstPage.items.size == expectedDefaultApps.size &&
+                        existingPageApps.size == expectedDefaultApps.size &&
+                        existingPageApps.indices.all { index ->
+                            existingPageApps[index].position == index &&
+                                existingPageApps[index].packageName == expectedDefaultApps[index].packageName
+                        }
+                    val shouldApplyDefaultDesktop = firstPage?.items.isNullOrEmpty() || isUntouchedDefaultLayout
+                    val updatedPages = if (shouldApplyDefaultDesktop) {
+                        val pages = current.pages.toMutableList()
+                        if (pages.isEmpty()) {
+                            pages += PageData(0, defaultPageItems)
+                        } else {
+                            pages[0] = PageData(pages[0].pageIndex, defaultPageItems)
+                        }
+                        pages
+                    } else {
+                        current.pages
+                    }
+
                     current.copy(
                         installedApps = apps,
                         dockApps = refreshDockApps(current.dockApps, apps).ifEmpty { defaultDock },
-                        pages = if (current.pages.firstOrNull()?.items.isNullOrEmpty()) {
-                            listOf(PageData(0, defaultPageItems))
-                        } else current.pages
+                        pages = updatedPages
                     )
                 }
             }
