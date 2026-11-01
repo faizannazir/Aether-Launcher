@@ -39,6 +39,19 @@ class MainActivity : ComponentActivity() {
     private var pendingWidgetInfo: AppWidgetProviderInfo? = null
     private var isDefaultHome by mutableStateOf(false)
 
+    private val homeRoleLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        isDefaultHome = isDefaultHomeApp()
+        if (!isDefaultHome) {
+            android.widget.Toast.makeText(
+                this,
+                "Aether was not selected as the default Home app. Choose it in Android's Home app settings.",
+                android.widget.Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
     private val bindWidgetLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -203,23 +216,42 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    fun requestDefaultHomeRole() {
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-            val roleManager = getSystemService(android.app.role.RoleManager::class.java)
-            if (roleManager != null && roleManager.isRoleAvailable(android.app.role.RoleManager.ROLE_HOME)) {
-                if (!roleManager.isRoleHeld(android.app.role.RoleManager.ROLE_HOME)) {
-                    val intent = roleManager.createRequestRoleIntent(android.app.role.RoleManager.ROLE_HOME)
-                    startActivity(intent)
+    private fun requestDefaultHomeRole() {
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                val roleManager = getSystemService(android.app.role.RoleManager::class.java)
+                if (roleManager?.isRoleAvailable(android.app.role.RoleManager.ROLE_HOME) == true) {
+                    if (roleManager.isRoleHeld(android.app.role.RoleManager.ROLE_HOME)) {
+                        isDefaultHome = true
+                    } else {
+                        homeRoleLauncher.launch(
+                            roleManager.createRequestRoleIntent(android.app.role.RoleManager.ROLE_HOME)
+                        )
+                    }
                     return
                 }
             }
-        }
-        try {
-            val intent = Intent(android.provider.Settings.ACTION_HOME_SETTINGS)
-            startActivity(intent)
-        } catch (e: Exception) {
-            val intent = Intent(android.provider.Settings.ACTION_SETTINGS)
-            startActivity(intent)
+
+            // Older Android versions expose the Home-app picker through system settings.
+            val homeSettings = Intent(android.provider.Settings.ACTION_HOME_SETTINGS)
+            if (homeSettings.resolveActivity(packageManager) != null) {
+                startActivity(homeSettings)
+            } else {
+                val homePicker = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+                startActivity(Intent.createChooser(homePicker, "Choose your Home app"))
+            }
+        } catch (error: android.content.ActivityNotFoundException) {
+            android.widget.Toast.makeText(
+                this,
+                "Android could not open Home app settings on this device.",
+                android.widget.Toast.LENGTH_LONG
+            ).show()
+        } catch (error: SecurityException) {
+            android.widget.Toast.makeText(
+                this,
+                "Android did not allow Aether to request the Home app role.",
+                android.widget.Toast.LENGTH_LONG
+            ).show()
         }
     }
 
@@ -229,13 +261,18 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun isDefaultHomeApp(): Boolean {
+        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+        val resolvedPackage = packageManager.resolveActivity(
+            intent,
+            android.content.pm.PackageManager.MATCH_DEFAULT_ONLY
+        )?.activityInfo?.packageName
+
         return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-            getSystemService(android.app.role.RoleManager::class.java)
-                ?.isRoleHeld(android.app.role.RoleManager.ROLE_HOME) == true
+            val roleManager = getSystemService(android.app.role.RoleManager::class.java)
+            roleManager?.isRoleHeld(android.app.role.RoleManager.ROLE_HOME)
+                ?: (resolvedPackage == packageName)
         } else {
-            val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
-            packageManager.resolveActivity(intent, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY)
-                ?.activityInfo?.packageName == packageName
+            resolvedPackage == packageName
         }
     }
 
