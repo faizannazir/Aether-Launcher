@@ -6,6 +6,7 @@ import android.text.format.DateFormat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -130,7 +131,8 @@ fun HomeScreen(
     onStartDrag: (HomeLayoutItem, Int, Int) -> Unit,
     onDropItem: (Int) -> Unit,
     onToggleServiceWidgetFocus: (String) -> Unit = {},
-    onSettingsClick: () -> Unit = {}
+    onSettingsClick: () -> Unit = {},
+    onSwipeUp: () -> Unit = {}
 ) {
     val background = if (state.isDarkTheme) {
         Brush.verticalGradient(listOf(Color(0xFF101A31), Color(0xFF172B4D), Color(0xFF111827)))
@@ -147,6 +149,20 @@ fun HomeScreen(
             .statusBarsPadding()
             .navigationBarsPadding()
             .pointerInput(Unit) { detectTapGestures(onLongPress = { onOpenEditMode() }) }
+            .pointerInput(onSwipeUp) {
+                var verticalDistance = 0f
+                detectDragGestures(
+                    onDragStart = { verticalDistance = 0f },
+                    onDragEnd = {
+                        if (verticalDistance < -72f) onSwipeUp()
+                        verticalDistance = 0f
+                    },
+                    onDragCancel = { verticalDistance = 0f }
+                ) { change, dragAmount ->
+                    verticalDistance += dragAmount.y
+                    change.consume()
+                }
+            }
     ) {
         IconButton(onClick = onSettingsClick, modifier = Modifier.align(Alignment.TopEnd).padding(top = 2.dp, end = 12.dp)) {
             Icon(Icons.Rounded.Settings, contentDescription = "Launcher settings", tint = Color.White.copy(alpha = 0.9f))
