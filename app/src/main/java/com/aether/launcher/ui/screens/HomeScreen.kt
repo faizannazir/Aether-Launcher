@@ -363,6 +363,28 @@ fun HomeScreen(
 
             Spacer(Modifier.height(10.dp))
 
+            appSelectedForFolder?.let { selectedPackage ->
+                val selectedLabel = state.installedApps.firstOrNull { it.packageName == selectedPackage }?.label
+                    ?: selectedPackage
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color.White.copy(alpha = 0.18f))
+                        .clickable { appSelectedForFolder = null }
+                        .padding(horizontal = 12.dp, vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Choose another app to group with $selectedLabel · Tap to cancel",
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+            }
+
             if (specialItems.isNotEmpty()) {
                 Row(
                     modifier = Modifier
