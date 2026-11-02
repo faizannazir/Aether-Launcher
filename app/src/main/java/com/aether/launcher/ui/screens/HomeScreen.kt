@@ -498,13 +498,6 @@ fun HomeScreen(
                                         }
                                     }
                                 )
-                                DropdownMenuItem(
-                                    text = { Text("Home screen options") },
-                                    onClick = {
-                                        menuExpanded = false
-                                        onOpenEditMode()
-                                    }
-                                )
                             }
                         }
                     }
