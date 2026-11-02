@@ -181,6 +181,8 @@ class MainActivity : ComponentActivity() {
                             isBlurEnabled = state.isBlurEnabled,
                             onAppClick = { viewModel.launchApp(it) },
                             onTitleChange = { viewModel.updateFolderTitle(folder.id, it) },
+                            onRemoveApp = { viewModel.removeAppFromFolder(folder.id, it) },
+                            onUngroup = { viewModel.ungroupFolder(folder.id, state.activePageIndex) },
                             onDismiss = { viewModel.closeFolder() }
                         )
                     }
