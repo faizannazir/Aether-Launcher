@@ -19,6 +19,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -46,6 +48,8 @@ fun FolderModal(
     isBlurEnabled: Boolean,
     onAppClick: (AppItem) -> Unit,
     onTitleChange: (String) -> Unit,
+    onRemoveApp: (String) -> Unit = {},
+    onUngroup: () -> Unit = {},
     onDismiss: () -> Unit
 ) {
     val textColor = if (isDarkTheme) Color.White else Color(0xFF191C1E)
@@ -130,27 +134,54 @@ fun FolderModal(
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    items(folderApps) { app ->
-                        SquircleIcon(
-                            label = app.label,
-                            iconDrawable = app.icon,
-                            onClick = {
-                                onAppClick(app)
-                                onDismiss()
-                            },
-                            isDarkTheme = isDarkTheme,
-                            isBlurEnabled = isBlurEnabled
-                        )
+                    items(folderApps, key = { it.packageName }) { app ->
+                        var menuExpanded by remember(app.packageName) { mutableStateOf(false) }
+                        Box {
+                            SquircleIcon(
+                                label = app.label,
+                                iconDrawable = app.icon,
+                                onClick = {
+                                    onAppClick(app)
+                                    onDismiss()
+                                },
+                                onLongClick = { menuExpanded = true },
+                                isDarkTheme = isDarkTheme,
+                                isBlurEnabled = isBlurEnabled
+                            )
+                            DropdownMenu(
+                                expanded = menuExpanded,
+                                onDismissRequest = { menuExpanded = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Remove from folder") },
+                                    onClick = {
+                                        menuExpanded = false
+                                        onRemoveApp(app.packageName)
+                                    }
+                                )
+                            }
+                        }
                     }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                Button(
-                    onClick = onDismiss,
-                    shape = RoundedCornerShape(20.dp)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Done")
+                    Button(
+                        onClick = onUngroup,
+                        shape = RoundedCornerShape(20.dp)
+                    ) {
+                        Text("Ungroup")
+                    }
+                    Button(
+                        onClick = onDismiss,
+                        shape = RoundedCornerShape(20.dp)
+                    ) {
+                        Text("Done")
+                    }
                 }
             }
         }
