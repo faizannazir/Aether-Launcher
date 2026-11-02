@@ -367,8 +367,23 @@ class LauncherViewModel(
     }
 
     fun startDrag(item: HomeLayoutItem, pageIndex: Int, position: Int) {
-        _uiState.update {
-            it.copy(
+        _uiState.update { current ->
+            val pagePosition = current.pages.indexOfFirst { it.pageIndex == pageIndex }
+            val updatedPages = if (pagePosition >= 0 && current.pages[pagePosition].items.isEmpty()) {
+                val seededItems = current.installedApps.take(12).mapIndexed { index, app ->
+                    HomeLayoutItem.App(
+                        id = "app_${app.packageName}",
+                        position = index,
+                        packageName = app.packageName,
+                        className = app.className
+                    )
+                }
+                current.pages.toMutableList().also { pages ->
+                    pages[pagePosition] = pages[pagePosition].copy(items = seededItems)
+                }
+            } else current.pages
+            current.copy(
+                pages = updatedPages,
                 dragState = DragState(
                     draggedItem = item,
                     sourcePage = pageIndex,
