@@ -133,6 +133,10 @@ class LauncherViewModel(
             }
         }
 
+        viewModelScope.launch { preferences.iconSizeDp.collectLatest { value -> _uiState.update { it.copy(iconSizeDp = value) } } }
+        viewModelScope.launch { preferences.showIconLabels.collectLatest { value -> _uiState.update { it.copy(showIconLabels = value) } } }
+        viewModelScope.launch { preferences.dockIconSizeDp.collectLatest { value -> _uiState.update { it.copy(dockIconSizeDp = value) } } }
+
         viewModelScope.launch {
             preferences.gridColumns.collectLatest { grid ->
                 _uiState.update { it.copy(gridColumns = grid) }
@@ -510,6 +514,10 @@ class LauncherViewModel(
     fun setGridColumns(grid: String) {
         viewModelScope.launch { preferences.setGridColumns(grid) }
     }
+
+    fun setIconSizeDp(size: Float) { viewModelScope.launch { preferences.setIconSizeDp(size) } }
+    fun setShowIconLabels(show: Boolean) { viewModelScope.launch { preferences.setShowIconLabels(show) } }
+    fun setDockIconSizeDp(size: Float) { viewModelScope.launch { preferences.setDockIconSizeDp(size) } }
 
 
     fun registerPackageReceiver() {
