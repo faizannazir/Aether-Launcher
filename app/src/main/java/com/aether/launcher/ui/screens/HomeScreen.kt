@@ -35,6 +35,8 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -218,7 +220,9 @@ fun HomeScreen(
     onSettingsClick: () -> Unit = {},
     onSwipeUp: () -> Unit = {},
     onPageSelected: (Int) -> Unit = {},
-    onAddPage: () -> Unit = {}
+    onAddPage: () -> Unit = {},
+    onRemoveApp: (String, Int) -> Unit = { _, _ -> },
+    onCreateFolder: (String, String, Int) -> Unit = { _, _, _ -> }
 ) {
     val activePage = state.pages.getOrNull(state.activePageIndex) ?: state.pages.firstOrNull()
     val appByPackage = remember(state.installedApps) {
@@ -416,17 +420,46 @@ fun HomeScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     items(homeApps, key = { it.packageName }) { app ->
-                        SquircleIcon(
-                            label = app.label,
-                            iconDrawable = app.icon,
-                            onClick = { onAppClick(app) },
-                            size = 52.dp,
-                            isDarkTheme = state.isDarkTheme,
-                            isBlurEnabled = state.isBlurEnabled,
-                            labelColor = Color.White,
-                            onLongClick = onOpenEditMode,
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                        var menuExpanded by remember(app.packageName) { mutableStateOf(false) }
+                        Box {
+                            SquircleIcon(
+                                label = app.label,
+                                iconDrawable = app.icon,
+                                onClick = { onAppClick(app) },
+                                size = 52.dp,
+                                isDarkTheme = state.isDarkTheme,
+                                isBlurEnabled = state.isBlurEnabled,
+                                labelColor = Color.White,
+                                onLongClick = { menuExpanded = true },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            DropdownMenu(
+                                expanded = menuExpanded,
+                                onDismissRequest = { menuExpanded = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Open app") },
+                                    onClick = {
+                                        menuExpanded = false
+                                        onAppClick(app)
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Remove from home") },
+                                    onClick = {
+                                        menuExpanded = false
+                                        onRemoveApp(app.packageName, activePage?.pageIndex ?: state.activePageIndex)
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Home screen options") },
+                                    onClick = {
+                                        menuExpanded = false
+                                        onOpenEditMode()
+                                    }
+                                )
+                            }
+                        }
                     }
                 }
             } else {
