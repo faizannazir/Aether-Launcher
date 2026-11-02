@@ -1,8 +1,11 @@
 name: Android CI
 
-# Run CI once per pull request update; source-branch pushes are covered by the PR event.
+# Run once for each source-branch commit; PR open/reopen events provide an initial check.
 on:
+  push:
+    branches: [ "fix/harmony-home-gestures-wallpaper-layout" ]
   pull_request:
+    types: [ opened, reopened ]
     branches: [ "main", "fix/launcher-performance-drawer-pages-install", "fix/home-role-gestures-harmony-redesign" ]
   workflow_dispatch:
 
