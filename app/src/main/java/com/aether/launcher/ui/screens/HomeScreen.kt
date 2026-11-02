@@ -471,10 +471,11 @@ fun HomeScreen(
                                     label = app.label,
                                     iconDrawable = app.icon,
                                     onClick = { if (draggingPackage == null) onAppClick(app) },
-                                    size = 52.dp,
+                                    size = state.iconSizeDp.dp,
                                     isDarkTheme = state.isDarkTheme,
                                     isBlurEnabled = state.isBlurEnabled,
-                                    labelColor = Color.White,
+                                    labelColor = if (state.isDarkTheme) Color.White else Color(0xFF17212B),
+                                    showLabel = state.showIconLabels,
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .onGloballyPositioned { iconCoordinates = it }
