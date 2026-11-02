@@ -119,7 +119,13 @@ class MainActivity : ComponentActivity() {
                         onSettingsClick = { viewModel.openScreen(LauncherScreen.SETTINGS) },
                         onSwipeUp = { viewModel.openScreen(LauncherScreen.APP_DRAWER) },
                         onPageSelected = { viewModel.setActivePageIndex(it) },
-                        onAddPage = { viewModel.addHomePage() }
+                        onAddPage = { viewModel.addHomePage() },
+                        onRemoveApp = { packageName, pageIndex ->
+                            viewModel.removeAppFromHome(packageName, pageIndex)
+                        },
+                        onCreateFolder = { first, second, pageIndex ->
+                            viewModel.createFolderFromApps(first, second, pageIndex)
+                        }
                     )
 
                     if (state.currentScreen == LauncherScreen.SETTINGS) {
