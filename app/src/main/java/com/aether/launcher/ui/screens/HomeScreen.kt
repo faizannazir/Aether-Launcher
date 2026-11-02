@@ -231,7 +231,7 @@ fun HomeScreen(
     var appSelectedForFolder by remember { mutableStateOf<String?>(null) }
     var draggingPackage by remember { mutableStateOf<String?>(null) }
     var dragVisualOffset by remember { mutableStateOf(Offset.Zero) }
-    val appIconCenters = remember { mutableStateMapOf<String, Pair<Offset, Int>>() }
+    val appIconCenters = remember(activePage?.pageIndex) { mutableStateMapOf<String, Pair<Offset, Int>>() }
     val activePage = state.pages.getOrNull(state.activePageIndex) ?: state.pages.firstOrNull()
     val appByPackage = remember(state.installedApps) {
         state.installedApps.associateBy { it.packageName }
@@ -265,7 +265,7 @@ fun HomeScreen(
                 .statusBarsPadding()
                 .navigationBarsPadding()
                 .padding(horizontal = 20.dp)
-                .pointerInput(onSwipeUp, onPageSelected, state.pages.size, state.activePageIndex) {
+                .pointerInput(onSwipeUp, onPageSelected, state.pages.size, state.activePageIndex, draggingPackage) {
                     val horizontalThreshold = 56.dp.toPx()
                     val upwardThreshold = 64.dp.toPx()
                     val bottomGestureZone = 176.dp.toPx()
@@ -288,7 +288,7 @@ fun HomeScreen(
                                 totalX += delta.x
                                 totalY += delta.y
 
-                                if (!handled &&
+                                if (!handled && draggingPackage == null &&
                                     state.pages.size > 1 &&
                                     abs(totalX) >= horizontalThreshold &&
                                     abs(totalX) > abs(totalY) * 1.2f
@@ -301,7 +301,7 @@ fun HomeScreen(
                                         (state.activePageIndex - 1).coerceAtLeast(0)
                                     }
                                     if (nextPage != state.activePageIndex) onPageSelected(nextPage)
-                                } else if (!handled &&
+                                } else if (!handled && draggingPackage == null &&
                                     startedNearDock &&
                                     totalY <= -upwardThreshold &&
                                     abs(totalY) > abs(totalX) * 1.2f
