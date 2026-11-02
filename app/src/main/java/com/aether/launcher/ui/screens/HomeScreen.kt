@@ -224,6 +224,7 @@ fun HomeScreen(
     onRemoveApp: (String, Int) -> Unit = { _, _ -> },
     onCreateFolder: (String, String, Int) -> Unit = { _, _, _ -> }
 ) {
+    var appSelectedForFolder by remember { mutableStateOf<String?>(null) }
     val activePage = state.pages.getOrNull(state.activePageIndex) ?: state.pages.firstOrNull()
     val appByPackage = remember(state.installedApps) {
         state.installedApps.associateBy { it.packageName }
@@ -449,6 +450,30 @@ fun HomeScreen(
                                     onClick = {
                                         menuExpanded = false
                                         onRemoveApp(app.packageName, activePage?.pageIndex ?: state.activePageIndex)
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            if (appSelectedForFolder == null) "Start a folder"
+                                            else if (appSelectedForFolder == app.packageName) "Cancel folder selection"
+                                            else "Add to selected folder"
+                                        )
+                                    },
+                                    onClick = {
+                                        menuExpanded = false
+                                        when {
+                                            appSelectedForFolder == null -> appSelectedForFolder = app.packageName
+                                            appSelectedForFolder == app.packageName -> appSelectedForFolder = null
+                                            else -> {
+                                                onCreateFolder(
+                                                    appSelectedForFolder!!,
+                                                    app.packageName,
+                                                    activePage?.pageIndex ?: state.activePageIndex
+                                                )
+                                                appSelectedForFolder = null
+                                            }
+                                        }
                                     }
                                 )
                                 DropdownMenuItem(
