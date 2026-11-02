@@ -228,11 +228,11 @@ fun HomeScreen(
     onRemoveApp: (String, Int) -> Unit = { _, _ -> },
     onCreateFolder: (String, String, Int) -> Unit = { _, _, _ -> }
 ) {
+    val activePage = state.pages.getOrNull(state.activePageIndex) ?: state.pages.firstOrNull()
     var appSelectedForFolder by remember { mutableStateOf<String?>(null) }
     var draggingPackage by remember { mutableStateOf<String?>(null) }
     var dragVisualOffset by remember { mutableStateOf(Offset.Zero) }
     val gridCellCenters = remember(activePage?.pageIndex) { mutableStateMapOf<Int, Offset>() }
-    val activePage = state.pages.getOrNull(state.activePageIndex) ?: state.pages.firstOrNull()
     val appByPackage = remember(state.installedApps) {
         state.installedApps.associateBy { it.packageName }
     }
