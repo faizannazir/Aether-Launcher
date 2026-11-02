@@ -98,6 +98,40 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `long press grouping replaces two home apps with a folder`() {
+        val first = AppItem("com.test.first", "FirstActivity", "First")
+        val second = AppItem("com.test.second", "SecondActivity", "Second")
+
+        viewModel.addAppToHomePage(first)
+        viewModel.addAppToHomePage(second)
+        viewModel.createFolderFromApps(first.packageName, second.packageName, pageIndex = 0)
+
+        val page = viewModel.uiState.value.pages.first()
+        val apps = page.items.filterIsInstance<HomeLayoutItem.App>()
+        val folders = page.items.filterIsInstance<HomeLayoutItem.Folder>()
+
+        assertEquals(0, apps.size)
+        assertEquals(1, folders.size)
+        assertEquals(setOf(first.packageName, second.packageName), folders.single().appPackages.toSet())
+    }
+
+    @Test
+    fun `removing a home app leaves other desktop items intact`() {
+        val first = AppItem("com.test.first", "FirstActivity", "First")
+        val second = AppItem("com.test.second", "SecondActivity", "Second")
+
+        viewModel.addAppToHomePage(first)
+        viewModel.addAppToHomePage(second)
+        viewModel.removeAppFromHome(first.packageName, pageIndex = 0)
+
+        val remaining = viewModel.uiState.value.pages.first().items
+            .filterIsInstance<HomeLayoutItem.App>()
+            .map { it.packageName }
+
+        assertEquals(listOf(second.packageName), remaining)
+    }
+
+    @Test
     fun `adding a home page creates and selects a persistent page`() {
         val initialPageCount = viewModel.uiState.value.pages.size
 

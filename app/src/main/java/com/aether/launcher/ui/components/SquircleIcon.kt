@@ -51,7 +51,8 @@ fun SquircleIcon(
     size: Dp = 48.dp,
     showLabel: Boolean = true,
     isDarkTheme: Boolean = false,
-    isBlurEnabled: Boolean = true
+    isBlurEnabled: Boolean = true,
+    labelColor: Color? = null
 ) {
     val bitmap = remember(iconDrawable) {
         iconDrawable?.let { drawable ->
@@ -121,7 +122,7 @@ fun SquircleIcon(
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium
                 ),
-                color = Color.White,
+                color = labelColor ?: if (isDarkTheme) Color.White else Color(0xFF202124),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center

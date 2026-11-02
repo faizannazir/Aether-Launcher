@@ -119,7 +119,13 @@ class MainActivity : ComponentActivity() {
                         onSettingsClick = { viewModel.openScreen(LauncherScreen.SETTINGS) },
                         onSwipeUp = { viewModel.openScreen(LauncherScreen.APP_DRAWER) },
                         onPageSelected = { viewModel.setActivePageIndex(it) },
-                        onAddPage = { viewModel.addHomePage() }
+                        onAddPage = { viewModel.addHomePage() },
+                        onRemoveApp = { packageName, pageIndex ->
+                            viewModel.removeAppFromHome(packageName, pageIndex)
+                        },
+                        onCreateFolder = { first, second, pageIndex ->
+                            viewModel.createFolderFromApps(first, second, pageIndex)
+                        }
                     )
 
                     if (state.currentScreen == LauncherScreen.SETTINGS) {
@@ -175,6 +181,8 @@ class MainActivity : ComponentActivity() {
                             isBlurEnabled = state.isBlurEnabled,
                             onAppClick = { viewModel.launchApp(it) },
                             onTitleChange = { viewModel.updateFolderTitle(folder.id, it) },
+                            onRemoveApp = { viewModel.removeAppFromFolder(folder.id, it) },
+                            onUngroup = { viewModel.ungroupFolder(folder.id, state.activePageIndex) },
                             onDismiss = { viewModel.closeFolder() }
                         )
                     }
