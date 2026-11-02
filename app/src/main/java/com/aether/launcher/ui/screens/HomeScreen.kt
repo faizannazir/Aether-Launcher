@@ -52,7 +52,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
@@ -231,7 +230,7 @@ fun HomeScreen(
     var appSelectedForFolder by remember { mutableStateOf<String?>(null) }
     var draggingPackage by remember { mutableStateOf<String?>(null) }
     var dragVisualOffset by remember { mutableStateOf(Offset.Zero) }
-    val appIconCenters = remember(activePage?.pageIndex) { mutableStateMapOf<String, Pair<Offset, Int>>() }
+    val gridCellCenters = remember(activePage?.pageIndex) { mutableStateMapOf<Int, Offset>() }
     val activePage = state.pages.getOrNull(state.activePageIndex) ?: state.pages.firstOrNull()
     val appByPackage = remember(state.installedApps) {
         state.installedApps.associateBy { it.packageName }
@@ -240,13 +239,16 @@ fun HomeScreen(
         .orEmpty()
         .filterIsInstance<HomeLayoutItem.App>()
         .sortedBy { it.position }
-    val homeApps = remember(pageApps, state.installedApps, activePage?.pageIndex) {
+    val appsByGridPosition = remember(pageApps, state.installedApps, activePage?.pageIndex) {
         if (pageApps.isEmpty() && activePage?.pageIndex == 0) {
-            state.installedApps.take(12)
+            state.installedApps.take(12).mapIndexed { index, app -> index to app }.toMap()
         } else {
-            pageApps.mapNotNull { appByPackage[it.packageName] }.take(12)
+            pageApps.mapNotNull { item ->
+                appByPackage[item.packageName]?.let { item.position to it }
+            }.toMap()
         }
     }
+    val homeApps = remember(appsByGridPosition) { appsByGridPosition.values.toList() }
     val specialItems = activePage?.items.orEmpty()
         .filter { it !is HomeLayoutItem.App }
         .sortedBy { it.position }
@@ -449,80 +451,83 @@ fun HomeScreen(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    items(homeApps, key = { it.packageName }) { app ->
-                        val itemPosition = pageApps.firstOrNull { it.packageName == app.packageName }?.position
-                            ?: homeApps.indexOf(app)
-                        var iconCoordinates by remember(app.packageName) { mutableStateOf<LayoutCoordinates?>(null) }
-                        val isDragging = draggingPackage == app.packageName
-
-                        SquircleIcon(
-                            label = app.label,
-                            iconDrawable = app.icon,
-                            onClick = { if (draggingPackage == null) onAppClick(app) },
-                            size = 52.dp,
-                            isDarkTheme = state.isDarkTheme,
-                            isBlurEnabled = state.isBlurEnabled,
-                            labelColor = Color.White,
+                    items(20, key = { "home-slot-$it" }) { position ->
+                        val app = appsByGridPosition[position]
+                        Box(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .height(76.dp)
                                 .onGloballyPositioned { coordinates ->
-                                    iconCoordinates = coordinates
-                                    appIconCenters[app.packageName] = Pair(
-                                        coordinates.localToRoot(
-                                            Offset(coordinates.size.width / 2f, coordinates.size.height / 2f)
-                                        ),
-                                        itemPosition
+                                    gridCellCenters[position] = coordinates.localToRoot(
+                                        Offset(coordinates.size.width / 2f, coordinates.size.height / 2f)
                                     )
                                 }
-                                .pointerInput(app.packageName, activePage?.pageIndex, appIconCenters.keys.toList()) {
-                                    var targetPosition = itemPosition
-                                    detectDragGesturesAfterLongPress(
-                                        onDragStart = {
-                                            draggingPackage = app.packageName
-                                            dragVisualOffset = Offset.Zero
-                                            onStartDrag(
-                                                HomeLayoutItem.App(
-                                                    id = "app_${app.packageName}",
-                                                    position = itemPosition,
-                                                    packageName = app.packageName,
-                                                    className = app.className
-                                                ),
-                                                activePage?.pageIndex ?: state.activePageIndex,
-                                                itemPosition
+                        ) {
+                            if (app != null) {
+                                val isDragging = draggingPackage == app.packageName
+                                SquircleIcon(
+                                    label = app.label,
+                                    iconDrawable = app.icon,
+                                    onClick = { if (draggingPackage == null) onAppClick(app) },
+                                    size = 52.dp,
+                                    isDarkTheme = state.isDarkTheme,
+                                    isBlurEnabled = state.isBlurEnabled,
+                                    labelColor = Color.White,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .pointerInput(app.packageName, activePage?.pageIndex) {
+                                            var targetPosition = position
+                                            detectDragGesturesAfterLongPress(
+                                                onDragStart = {
+                                                    draggingPackage = app.packageName
+                                                    dragVisualOffset = Offset.Zero
+                                                    onStartDrag(
+                                                        HomeLayoutItem.App(
+                                                            id = "app_${app.packageName}",
+                                                            position = position,
+                                                            packageName = app.packageName,
+                                                            className = app.className
+                                                        ),
+                                                        activePage?.pageIndex ?: state.activePageIndex,
+                                                        position
+                                                    )
+                                                },
+                                                onDrag = { change, dragAmount ->
+                                                    change.consume()
+                                                    dragVisualOffset += dragAmount
+                                                    val pointerInRoot = this@Box.run {
+                                                        // Pointer coordinates are local to the icon's input node.
+                                                        val rootCoordinates = coordinates
+                                                        rootCoordinates.localToRoot(change.position)
+                                                    }
+                                                    targetPosition = gridCellCenters.minByOrNull { (_, center) ->
+                                                        (center - pointerInRoot).getDistance()
+                                                    }?.key ?: position
+                                                },
+                                                onDragEnd = {
+                                                    draggingPackage = null
+                                                    dragVisualOffset = Offset.Zero
+                                                    onDropItem(targetPosition)
+                                                },
+                                                onDragCancel = {
+                                                    draggingPackage = null
+                                                    dragVisualOffset = Offset.Zero
+                                                    viewModelSafeCancelDrag(onDropItem, position)
+                                                }
                                             )
-                                        },
-                                        onDrag = { change, dragAmount ->
-                                            change.consume()
-                                            dragVisualOffset += dragAmount
-                                            val pointerInRoot = iconCoordinates?.localToRoot(change.position)
-                                            if (pointerInRoot != null && appIconCenters.isNotEmpty()) {
-                                                targetPosition = appIconCenters.values.minByOrNull { (center, _) ->
-                                                    (center - pointerInRoot).getDistance()
-                                                }?.second ?: itemPosition
-                                            }
-                                        },
-                                        onDragEnd = {
-                                            draggingPackage = null
-                                            dragVisualOffset = Offset.Zero
-                                            onDropItem(targetPosition)
-                                        },
-                                        onDragCancel = {
-                                            draggingPackage = null
-                                            dragVisualOffset = Offset.Zero
-                                            onDropItem(itemPosition)
                                         }
-                                    )
-                                }
-                                .graphicsLayer {
-                                    if (isDragging) {
-                                        translationX = dragVisualOffset.x
-                                        translationY = dragVisualOffset.y
-                                        scaleX = 1.08f
-                                        scaleY = 1.08f
-                                        alpha = 0.88f
-                                    }
-                                }
-                        )
+                                        .graphicsLayer {
+                                            if (isDragging) {
+                                                translationX = dragVisualOffset.x
+                                                translationY = dragVisualOffset.y
+                                                scaleX = 1.08f
+                                                scaleY = 1.08f
+                                                alpha = 0.88f
+                                            }
+                                        }
+                                )
+                            }
+                        }
                     }
                 }
             } else {
