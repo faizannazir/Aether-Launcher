@@ -513,7 +513,7 @@ fun HomeScreen(
                                                 onDragCancel = {
                                                     draggingPackage = null
                                                     dragVisualOffset = Offset.Zero
-                                                    viewModelSafeCancelDrag(onDropItem, position)
+                                                    onDropItem(position)
                                                 }
                                             )
                                         }
