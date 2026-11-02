@@ -140,7 +140,10 @@ class MainActivity : ComponentActivity() {
                             onDarkThemeChange = { viewModel.setDarkTheme(it) },
                             onBlurChange = { viewModel.setBlurEnabled(it) },
                             onBlurIntensityChange = { viewModel.setBlurIntensity(it) },
-                            onGridColumnsChange = { viewModel.setGridColumns(it) }
+                            onGridColumnsChange = { viewModel.setGridColumns(it) },
+                            onIconSizeChange = { viewModel.setIconSizeDp(it) },
+                            onShowLabelsChange = { viewModel.setShowIconLabels(it) },
+                            onDockIconSizeChange = { viewModel.setDockIconSizeDp(it) }
                         )
                     }
 
