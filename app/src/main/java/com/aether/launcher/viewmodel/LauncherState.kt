@@ -39,7 +39,10 @@ data class LauncherState(
     val isDarkTheme: Boolean = false,
     val isBlurEnabled: Boolean = true,
     val blurIntensity: Float = 0.75f,
-    val gridColumns: String = "4x5"
+    val gridColumns: String = "4x5",
+    val iconSizeDp: Float = 52f,
+    val showIconLabels: Boolean = true,
+    val dockIconSizeDp: Float = 48f
 )
 
 /** Rebind dock entries to the latest installed-app objects so asynchronously loaded icons
