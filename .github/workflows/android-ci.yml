@@ -39,6 +39,14 @@ jobs:
       - name: Build debug APK
         run: ./gradlew assembleDebug --no-daemon --stacktrace
 
+      - name: Build optimized release APK
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Report APK sizes
+        shell: bash
+        run: |
+          du -h app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/release/app-release.apk
+
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
@@ -46,3 +54,11 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Upload optimized release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: aether-launcher-release-${{ github.run_number }}
+          path: app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 30
