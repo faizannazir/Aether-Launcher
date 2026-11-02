@@ -119,21 +119,10 @@ class LauncherViewModelTest {
         val second = AppItem("com.test.folder.second", "SecondActivity", "Second")
         viewModel.addAppToHomePage(first)
         viewModel.addAppToHomePage(second)
-        val page = viewModel.uiState.value.pages.first()
-        val firstItem = page.items.filterIsInstance<HomeLayoutItem.App>()
-            .first { it.packageName == first.packageName }
-        val secondItem = page.items.filterIsInstance<HomeLayoutItem.App>()
-            .first { it.packageName == second.packageName }
         viewModel.createFolderFromApps(first.packageName, second.packageName, pageIndex = 0)
         val folder = viewModel.uiState.value.pages.first().items
             .filterIsInstance<HomeLayoutItem.Folder>().single()
 
-        viewModel.startDrag(
-            HomeLayoutItem.App("app_${first.packageName}", firstItem.position, first.packageName, first.className),
-            pageIndex = 0,
-            position = firstItem.position
-        )
-        // The first app was already grouped, so this checks the folder-drop path with a third app.
         val third = AppItem("com.test.folder.third", "ThirdActivity", "Third")
         viewModel.addAppToHomePage(third)
         val thirdItem = viewModel.uiState.value.pages.first().items
