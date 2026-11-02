@@ -596,6 +596,7 @@ fun HomeScreen(
                 onAppDrawerClick = onAppDrawerClick,
                 isDarkTheme = state.isDarkTheme,
                 isBlurEnabled = state.isBlurEnabled,
+                iconSizeDp = state.dockIconSizeDp,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 8.dp)
