@@ -27,7 +27,10 @@ fun LauncherSettingsScreen(
     onDarkThemeChange: (Boolean) -> Unit,
     onBlurChange: (Boolean) -> Unit,
     onBlurIntensityChange: (Float) -> Unit,
-    onGridColumnsChange: (String) -> Unit
+    onGridColumnsChange: (String) -> Unit,
+    onIconSizeChange: (Float) -> Unit,
+    onShowLabelsChange: (Boolean) -> Unit,
+    onDockIconSizeChange: (Float) -> Unit
 ) {
     val foreground = if (state.isDarkTheme) Color(0xFFF2F4F6) else Color(0xFF17212B)
     val muted = foreground.copy(alpha = 0.62f)
@@ -74,6 +77,15 @@ fun LauncherSettingsScreen(
                             FilterChip(state.gridColumns == grid, { onGridColumnsChange(grid) }, label = { Text(grid.substringBefore("x")) })
                         }
                     }
+                }
+                Column {
+                    Text("Home icon size: ${state.iconSizeDp.toInt()} dp", color = foreground)
+                    Slider(state.iconSizeDp, onIconSizeChange, valueRange = 40f..76f)
+                }
+                PreferenceSwitch("App labels", "Show names below home icons", state.showIconLabels, onShowLabelsChange, foreground, muted)
+                Column {
+                    Text("Dock icon size: ${state.dockIconSizeDp.toInt()} dp", color = foreground)
+                    Slider(state.dockIconSizeDp, onDockIconSizeChange, valueRange = 36f..64f)
                 }
             }
         }
