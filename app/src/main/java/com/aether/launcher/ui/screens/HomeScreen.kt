@@ -52,6 +52,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
@@ -465,6 +466,7 @@ fun HomeScreen(
                         ) {
                             if (app != null) {
                                 val isDragging = draggingPackage == app.packageName
+                                var iconCoordinates by remember(app.packageName) { mutableStateOf<LayoutCoordinates?>(null) }
                                 SquircleIcon(
                                     label = app.label,
                                     iconDrawable = app.icon,
@@ -475,6 +477,7 @@ fun HomeScreen(
                                     labelColor = Color.White,
                                     modifier = Modifier
                                         .fillMaxWidth()
+                                        .onGloballyPositioned { iconCoordinates = it }
                                         .pointerInput(app.packageName, activePage?.pageIndex) {
                                             var targetPosition = position
                                             detectDragGesturesAfterLongPress(
@@ -495,14 +498,12 @@ fun HomeScreen(
                                                 onDrag = { change, dragAmount ->
                                                     change.consume()
                                                     dragVisualOffset += dragAmount
-                                                    val pointerInRoot = this@Box.run {
-                                                        // Pointer coordinates are local to the icon's input node.
-                                                        val rootCoordinates = coordinates
-                                                        rootCoordinates.localToRoot(change.position)
+                                                    val pointerInRoot = iconCoordinates?.localToRoot(change.position)
+                                                    if (pointerInRoot != null) {
+                                                        targetPosition = gridCellCenters.minByOrNull { (_, center) ->
+                                                            (center - pointerInRoot).getDistance()
+                                                        }?.key ?: position
                                                     }
-                                                    targetPosition = gridCellCenters.minByOrNull { (_, center) ->
-                                                        (center - pointerInRoot).getDistance()
-                                                    }?.key ?: position
                                                 },
                                                 onDragEnd = {
                                                     draggingPackage = null
