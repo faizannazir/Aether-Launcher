@@ -340,10 +340,16 @@ class LauncherViewModel(
                 .mapNotNull { packageName ->
                     current.installedApps.firstOrNull { it.packageName == packageName }
                 }
-            val replacement = expandedApps.mapIndexed { index, app ->
+            val occupiedPositions = page.items
+                .filterNot { it.id == folder.id }
+                .mapTo(mutableSetOf()) { it.position }
+            val freePositions = (0 until 20)
+                .filterNot { it in occupiedPositions }
+                .sortedBy { position -> kotlin.math.abs(position - folder.position) }
+            val replacement = expandedApps.zip(freePositions).map { (app, position) ->
                 HomeLayoutItem.App(
                     id = "app_${app.packageName}",
-                    position = folder.position + index,
+                    position = position,
                     packageName = app.packageName,
                     className = app.className
                 )
