@@ -98,6 +98,55 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `dragging an app to an empty desktop slot moves it`() {
+        val app = AppItem("com.test.move", "MoveActivity", "Move")
+        viewModel.addAppToHomePage(app)
+
+        val item = viewModel.uiState.value.pages.first().items
+            .filterIsInstance<HomeLayoutItem.App>().single()
+        viewModel.startDrag(item, pageIndex = 0, position = item.position)
+        viewModel.dropDraggedItem(targetPosition = 7)
+
+        val moved = viewModel.uiState.value.pages.first().items
+            .filterIsInstance<HomeLayoutItem.App>().single()
+        assertEquals(7, moved.position)
+        assertNull(viewModel.uiState.value.dragState.draggedItem)
+    }
+
+    @Test
+    fun `dragging an app onto a folder adds it to that folder`() {
+        val first = AppItem("com.test.folder.first", "FirstActivity", "First")
+        val second = AppItem("com.test.folder.second", "SecondActivity", "Second")
+        viewModel.addAppToHomePage(first)
+        viewModel.addAppToHomePage(second)
+        val page = viewModel.uiState.value.pages.first()
+        val firstItem = page.items.filterIsInstance<HomeLayoutItem.App>()
+            .first { it.packageName == first.packageName }
+        val secondItem = page.items.filterIsInstance<HomeLayoutItem.App>()
+            .first { it.packageName == second.packageName }
+        viewModel.createFolderFromApps(first.packageName, second.packageName, pageIndex = 0)
+        val folder = viewModel.uiState.value.pages.first().items
+            .filterIsInstance<HomeLayoutItem.Folder>().single()
+
+        viewModel.startDrag(
+            HomeLayoutItem.App("app_${first.packageName}", firstItem.position, first.packageName, first.className),
+            pageIndex = 0,
+            position = firstItem.position
+        )
+        // The first app was already grouped, so this checks the folder-drop path with a third app.
+        val third = AppItem("com.test.folder.third", "ThirdActivity", "Third")
+        viewModel.addAppToHomePage(third)
+        val thirdItem = viewModel.uiState.value.pages.first().items
+            .filterIsInstance<HomeLayoutItem.App>().single()
+        viewModel.startDrag(thirdItem, pageIndex = 0, position = thirdItem.position)
+        viewModel.dropDraggedItem(targetPosition = folder.position)
+
+        val updatedFolder = viewModel.uiState.value.pages.first().items
+            .filterIsInstance<HomeLayoutItem.Folder>().single()
+        assertEquals(setOf(first.packageName, second.packageName, third.packageName), updatedFolder.appPackages.toSet())
+    }
+
+    @Test
     fun `long press grouping replaces two home apps with a folder`() {
         val first = AppItem("com.test.first", "FirstActivity", "First")
         val second = AppItem("com.test.second", "SecondActivity", "Second")
