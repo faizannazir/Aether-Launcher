@@ -404,37 +404,54 @@ class LauncherViewModel(
         val current = _uiState.value
         val drag = current.dragState
         val draggedItem = drag.draggedItem ?: return
+        val pagePosition = current.pages.indexOfFirst { it.pageIndex == drag.sourcePage }
+        if (pagePosition < 0) {
+            cancelDrag()
+            return
+        }
 
-        val page = current.pages.getOrNull(drag.sourcePage) ?: return
-        val existingAtTarget = page.items.find { it.position == targetPosition }
-
+        val page = current.pages[pagePosition]
+        val target = page.items.firstOrNull { it.position == targetPosition }
         val newItems = page.items.toMutableList()
 
-        if (existingAtTarget != null && existingAtTarget is HomeLayoutItem.App && draggedItem is HomeLayoutItem.App && existingAtTarget.id != draggedItem.id) {
-            newItems.remove(draggedItem)
-            newItems.remove(existingAtTarget)
-            val newFolder = HomeLayoutItem.Folder(
-                id = "folder_${System.currentTimeMillis()}",
-                position = targetPosition,
-                title = "New Folder",
-                appPackages = listOf(existingAtTarget.packageName, draggedItem.packageName)
-            )
-            newItems.add(newFolder)
-        } else {
-            newItems.remove(draggedItem)
-            val moved = when (draggedItem) {
-                is HomeLayoutItem.App -> draggedItem.copy(position = targetPosition)
-                is HomeLayoutItem.Folder -> draggedItem.copy(position = targetPosition)
-                is HomeLayoutItem.ServiceWidget -> draggedItem.copy(position = targetPosition)
-                is HomeLayoutItem.Widget -> draggedItem.copy(position = targetPosition)
+        when {
+            target == null -> {
+                newItems.remove(draggedItem)
+                val moved = when (draggedItem) {
+                    is HomeLayoutItem.App -> draggedItem.copy(position = targetPosition)
+                    is HomeLayoutItem.Folder -> draggedItem.copy(position = targetPosition)
+                    is HomeLayoutItem.ServiceWidget -> draggedItem.copy(position = targetPosition)
+                    is HomeLayoutItem.Widget -> draggedItem.copy(position = targetPosition)
+                }
+                newItems.add(moved)
             }
-            newItems.add(moved)
+            target.id == draggedItem.id -> Unit
+            target is HomeLayoutItem.App && draggedItem is HomeLayoutItem.App -> {
+                newItems.remove(draggedItem)
+                newItems.remove(target)
+                newItems.add(
+                    HomeLayoutItem.Folder(
+                        id = "folder_${System.currentTimeMillis()}",
+                        position = targetPosition,
+                        title = "New folder",
+                        appPackages = listOf(target.packageName, draggedItem.packageName).distinct()
+                    )
+                )
+            }
+            target is HomeLayoutItem.Folder && draggedItem is HomeLayoutItem.App -> {
+                newItems.remove(draggedItem)
+                newItems[newItems.indexOf(target)] = target.copy(
+                    appPackages = (target.appPackages + draggedItem.packageName).distinct()
+                )
+            }
+            else -> {
+                _uiState.update { it.copy(dragState = DragState()) }
+                return
+            }
         }
 
-        val updatedPages = current.pages.mapIndexed { idx, p ->
-            if (idx == drag.sourcePage) p.copy(items = newItems) else p
-        }
-
+        val updatedPages = current.pages.toMutableList()
+        updatedPages[pagePosition] = page.copy(items = newItems)
         _uiState.update { it.copy(pages = updatedPages, dragState = DragState()) }
         saveCurrentLayout()
     }
