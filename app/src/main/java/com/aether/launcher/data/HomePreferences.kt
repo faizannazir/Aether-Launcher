@@ -19,6 +19,9 @@ class HomePreferences(private val context: Context) {
         val BLUR_INTENSITY = floatPreferencesKey("blur_intensity")
         val GRID_COLUMNS = stringPreferencesKey("grid_columns")
         val DOCK_PACKAGES = stringPreferencesKey("dock_packages")
+        val ICON_SIZE_DP = floatPreferencesKey("icon_size_dp")
+        val SHOW_ICON_LABELS = booleanPreferencesKey("show_icon_labels")
+        val DOCK_ICON_SIZE_DP = floatPreferencesKey("dock_icon_size_dp")
     }
 
     val darkTheme: Flow<Boolean> = context.dataStore.data.map { prefs ->
@@ -36,6 +39,12 @@ class HomePreferences(private val context: Context) {
     val gridColumns: Flow<String> = context.dataStore.data.map { prefs ->
         prefs[GRID_COLUMNS] ?: "4x5"
     }
+
+    val iconSizeDp: Flow<Float> = context.dataStore.data.map { it[ICON_SIZE_DP] ?: 52f }
+
+    val showIconLabels: Flow<Boolean> = context.dataStore.data.map { it[SHOW_ICON_LABELS] ?: true }
+
+    val dockIconSizeDp: Flow<Float> = context.dataStore.data.map { it[DOCK_ICON_SIZE_DP] ?: 48f }
 
     val dockPackages: Flow<List<String>> = context.dataStore.data.map { prefs ->
         val raw = prefs[DOCK_PACKAGES] ?: ""
@@ -57,6 +66,12 @@ class HomePreferences(private val context: Context) {
     suspend fun setGridColumns(grid: String) {
         context.dataStore.edit { prefs -> prefs[GRID_COLUMNS] = grid }
     }
+
+    suspend fun setIconSizeDp(size: Float) { context.dataStore.edit { it[ICON_SIZE_DP] = size.coerceIn(40f, 76f) } }
+
+    suspend fun setShowIconLabels(show: Boolean) { context.dataStore.edit { it[SHOW_ICON_LABELS] = show } }
+
+    suspend fun setDockIconSizeDp(size: Float) { context.dataStore.edit { it[DOCK_ICON_SIZE_DP] = size.coerceIn(36f, 64f) } }
 
     suspend fun setDockPackages(packages: List<String>) {
         context.dataStore.edit { prefs -> prefs[DOCK_PACKAGES] = packages.joinToString(",") }
