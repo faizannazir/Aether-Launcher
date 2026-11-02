@@ -12,6 +12,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,13 +36,12 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -52,6 +52,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -225,6 +229,9 @@ fun HomeScreen(
     onCreateFolder: (String, String, Int) -> Unit = { _, _, _ -> }
 ) {
     var appSelectedForFolder by remember { mutableStateOf<String?>(null) }
+    var draggingPackage by remember { mutableStateOf<String?>(null) }
+    var dragVisualOffset by remember { mutableStateOf(Offset.Zero) }
+    val appIconCenters = remember { mutableStateMapOf<String, Pair<Offset, Int>>() }
     val activePage = state.pages.getOrNull(state.activePageIndex) ?: state.pages.firstOrNull()
     val appByPackage = remember(state.installedApps) {
         state.installedApps.associateBy { it.packageName }
@@ -443,63 +450,79 @@ fun HomeScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     items(homeApps, key = { it.packageName }) { app ->
-                        var menuExpanded by remember(app.packageName) { mutableStateOf(false) }
-                        Box {
-                            SquircleIcon(
-                                label = app.label,
-                                iconDrawable = app.icon,
-                                onClick = { onAppClick(app) },
-                                size = 52.dp,
-                                isDarkTheme = state.isDarkTheme,
-                                isBlurEnabled = state.isBlurEnabled,
-                                labelColor = Color.White,
-                                onLongClick = { menuExpanded = true },
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            DropdownMenu(
-                                expanded = menuExpanded,
-                                onDismissRequest = { menuExpanded = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text("Open app") },
-                                    onClick = {
-                                        menuExpanded = false
-                                        onAppClick(app)
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Remove from home") },
-                                    onClick = {
-                                        menuExpanded = false
-                                        onRemoveApp(app.packageName, activePage?.pageIndex ?: state.activePageIndex)
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            if (appSelectedForFolder == null) "Start a folder"
-                                            else if (appSelectedForFolder == app.packageName) "Cancel folder selection"
-                                            else "Add to selected folder"
-                                        )
-                                    },
-                                    onClick = {
-                                        menuExpanded = false
-                                        when {
-                                            appSelectedForFolder == null -> appSelectedForFolder = app.packageName
-                                            appSelectedForFolder == app.packageName -> appSelectedForFolder = null
-                                            else -> {
-                                                onCreateFolder(
-                                                    appSelectedForFolder!!,
-                                                    app.packageName,
-                                                    activePage?.pageIndex ?: state.activePageIndex
-                                                )
-                                                appSelectedForFolder = null
+                        val itemPosition = pageApps.firstOrNull { it.packageName == app.packageName }?.position
+                            ?: homeApps.indexOf(app)
+                        var iconCoordinates by remember(app.packageName) { mutableStateOf<LayoutCoordinates?>(null) }
+                        val isDragging = draggingPackage == app.packageName
+
+                        SquircleIcon(
+                            label = app.label,
+                            iconDrawable = app.icon,
+                            onClick = { if (draggingPackage == null) onAppClick(app) },
+                            size = 52.dp,
+                            isDarkTheme = state.isDarkTheme,
+                            isBlurEnabled = state.isBlurEnabled,
+                            labelColor = Color.White,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .onGloballyPositioned { coordinates ->
+                                    iconCoordinates = coordinates
+                                    appIconCenters[app.packageName] = Pair(
+                                        coordinates.localToRoot(
+                                            Offset(coordinates.size.width / 2f, coordinates.size.height / 2f)
+                                        ),
+                                        itemPosition
+                                    )
+                                }
+                                .pointerInput(app.packageName, activePage?.pageIndex, appIconCenters.keys.toList()) {
+                                    var targetPosition = itemPosition
+                                    detectDragGesturesAfterLongPress(
+                                        onDragStart = {
+                                            draggingPackage = app.packageName
+                                            dragVisualOffset = Offset.Zero
+                                            onStartDrag(
+                                                HomeLayoutItem.App(
+                                                    id = "app_${app.packageName}",
+                                                    position = itemPosition,
+                                                    packageName = app.packageName,
+                                                    className = app.className
+                                                ),
+                                                activePage?.pageIndex ?: state.activePageIndex,
+                                                itemPosition
+                                            )
+                                        },
+                                        onDrag = { change, dragAmount ->
+                                            change.consume()
+                                            dragVisualOffset += dragAmount
+                                            val pointerInRoot = iconCoordinates?.localToRoot(change.position)
+                                            if (pointerInRoot != null && appIconCenters.isNotEmpty()) {
+                                                targetPosition = appIconCenters.values.minByOrNull { (center, _) ->
+                                                    (center - pointerInRoot).getDistance()
+                                                }?.second ?: itemPosition
                                             }
+                                        },
+                                        onDragEnd = {
+                                            draggingPackage = null
+                                            dragVisualOffset = Offset.Zero
+                                            onDropItem(targetPosition)
+                                        },
+                                        onDragCancel = {
+                                            draggingPackage = null
+                                            dragVisualOffset = Offset.Zero
+                                            onDropItem(itemPosition)
                                         }
+                                    )
+                                }
+                                .graphicsLayer {
+                                    if (isDragging) {
+                                        translationX = dragVisualOffset.x
+                                        translationY = dragVisualOffset.y
+                                        scaleX = 1.08f
+                                        scaleY = 1.08f
+                                        alpha = 0.88f
                                     }
-                                )
-                            }
-                        }
+                                }
+                        )
                     }
                 }
             } else {
