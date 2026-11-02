@@ -23,6 +23,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import com.aether.launcher.data.model.AppItem
 import com.aether.launcher.glass.GlassLevel
 import com.aether.launcher.glass.glassSurface
@@ -34,6 +35,7 @@ fun FloatingDock(
     onAppDrawerClick: () -> Unit,
     isDarkTheme: Boolean = false,
     isBlurEnabled: Boolean = true,
+    iconSizeDp: Float = 42f,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -59,7 +61,7 @@ fun FloatingDock(
                 showLabel = false,
                 isDarkTheme = isDarkTheme,
                 isBlurEnabled = isBlurEnabled,
-                size = 42.dp
+                size = iconSizeDp.dp
             )
         }
 
