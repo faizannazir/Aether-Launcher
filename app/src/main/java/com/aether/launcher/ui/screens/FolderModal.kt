@@ -54,7 +54,7 @@ fun FolderModal(
 ) {
     val textColor = if (isDarkTheme) Color.White else Color(0xFF191C1E)
     var isEditingTitle by remember { mutableStateOf(false) }
-    var folderTitle by remember { mutableStateOf(folder.title) }
+    var folderTitle by remember(folder.id, folder.title) { mutableStateOf(folder.title) }
 
     val folderApps = installedApps.filter { app ->
         folder.appPackages.contains(app.packageName)
