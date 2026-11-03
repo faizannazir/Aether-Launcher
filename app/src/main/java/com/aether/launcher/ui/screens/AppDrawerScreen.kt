@@ -193,6 +193,7 @@ fun AppDrawerScreen(
                         SquircleIcon(
                             label = app.label,
                             iconDrawable = app.icon,
+                iconBitmap = app.iconBitmap,
                             onClick = { onAppClick(app) },
                             onLongClick = { onPinApp(app) },
                             size = 44.dp,
