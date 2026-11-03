@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -34,7 +35,13 @@ class LauncherViewModel(
     val uiState: StateFlow<LauncherState> = _uiState.asStateFlow()
 
     init {
+        // Restore the user's saved desktop before app discovery starts. This prevents
+        // the initial app scan from briefly replacing a real layout with starter content.
         viewModelScope.launch {
+            val savedPages = layoutPersistence.pagesFlow.first()
+            if (savedPages.isNotEmpty()) {
+                _uiState.update { it.copy(pages = savedPages) }
+            }
             repository.loadInstalledApps()
         }
 
@@ -107,13 +114,7 @@ class LauncherViewModel(
             }
         }
 
-        viewModelScope.launch {
-            layoutPersistence.pagesFlow.collectLatest { savedPages ->
-                if (savedPages.isNotEmpty()) {
-                    _uiState.update { it.copy(pages = savedPages) }
-                }
-            }
-        }
+
 
         viewModelScope.launch {
             preferences.darkTheme.collectLatest { dark ->
