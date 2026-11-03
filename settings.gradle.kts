@@ -14,4 +14,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "AetherLauncher"
-include(":app")
+include(":app", ":baselineprofile")
