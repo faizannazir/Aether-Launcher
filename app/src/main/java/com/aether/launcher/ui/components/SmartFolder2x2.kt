@@ -76,6 +76,7 @@ fun SmartFolder2x2(
                     SquircleIcon(
                         label = "",
                         iconDrawable = app.icon,
+                iconBitmap = app.iconBitmap,
                         onClick = { onAppClick(app) },
                         showLabel = false,
                         isDarkTheme = isDarkTheme,
