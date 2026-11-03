@@ -157,16 +157,20 @@ fun AppDrawerScreen(
             Spacer(modifier = Modifier.height(20.dp))
 
             // Filtered App List
-            val categoryApps = if (state.selectedCategory == AppCategory.ALL) {
-                state.installedApps
-            } else {
-                state.installedApps.filter { it.category == state.selectedCategory }
+            val categoryApps = remember(state.installedApps, state.selectedCategory) {
+                if (state.selectedCategory == AppCategory.ALL) {
+                    state.installedApps
+                } else {
+                    state.installedApps.filter { it.category == state.selectedCategory }
+                }
             }
 
-            val displayedApps = if (drawerSearchQuery.isBlank()) {
-                categoryApps
-            } else {
-                categoryApps.filter { it.label.contains(drawerSearchQuery, ignoreCase = true) }
+            val displayedApps = remember(categoryApps, drawerSearchQuery) {
+                if (drawerSearchQuery.isBlank()) {
+                    categoryApps
+                } else {
+                    categoryApps.filter { it.label.contains(drawerSearchQuery, ignoreCase = true) }
+                }
             }
 
             if (displayedApps.isEmpty()) {
