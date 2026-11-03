@@ -470,6 +470,7 @@ fun HomeScreen(
                                 SquircleIcon(
                                     label = app.label,
                                     iconDrawable = app.icon,
+                iconBitmap = app.iconBitmap,
                                     onClick = { if (draggingPackage == null) onAppClick(app) },
                                     size = state.iconSizeDp.dp,
                                     isDarkTheme = state.isDarkTheme,
