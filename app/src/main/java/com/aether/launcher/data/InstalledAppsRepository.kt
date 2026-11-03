@@ -142,7 +142,7 @@ class InstalledAppsRepository(private val context: Context) {
         appsWithoutIcons.chunked(16).forEach { batch ->
             val resolvedIcons = batch.associate { app ->
                 val updateTime = runCatching {
-                    pm.getApplicationInfo(app.packageName, PackageManager.MATCH_DISABLED_COMPONENTS).lastUpdateTime
+                    pm.getPackageInfo(app.packageName, 0).lastUpdateTime
                 }.getOrDefault(0L)
                 val key = iconKey(app.packageName, app.className, updateTime)
                 app.packageName to loadIconBitmap(key, app.packageName, app.className)
