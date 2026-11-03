@@ -236,10 +236,12 @@ fun HomeScreen(
     val appByPackage = remember(state.installedApps) {
         state.installedApps.associateBy { it.packageName }
     }
-    val pageApps = activePage?.items
-        .orEmpty()
-        .filterIsInstance<HomeLayoutItem.App>()
-        .sortedBy { it.position }
+    val pageApps = remember(activePage?.items) {
+        activePage?.items
+            .orEmpty()
+            .filterIsInstance<HomeLayoutItem.App>()
+            .sortedBy { it.position }
+    }
     val appsByGridPosition = remember(pageApps, state.installedApps, activePage?.pageIndex) {
         if (pageApps.isEmpty() && activePage?.pageIndex == 0) {
             state.installedApps.take(12).mapIndexed { index, app -> index to app }.toMap()
@@ -250,10 +252,12 @@ fun HomeScreen(
         }
     }
     val homeApps = remember(appsByGridPosition) { appsByGridPosition.values.toList() }
-    val specialItems = activePage?.items.orEmpty()
-        .filter { it !is HomeLayoutItem.App }
-        .sortedBy { it.position }
-        .take(2)
+    val specialItems = remember(activePage?.items) {
+        activePage?.items.orEmpty()
+            .filter { it !is HomeLayoutItem.App }
+            .sortedBy { it.position }
+            .take(2)
+    }
 
     Box(
         modifier = Modifier
