@@ -180,11 +180,12 @@ private fun WallpaperBackdrop(
             }.getOrNull()
         }
     }
+    val loadedWallpaper = wallpaper
 
     Box(modifier = modifier) {
-        if (wallpaper != null) {
+        if (loadedWallpaper != null) {
             Image(
-                bitmap = wallpaper,
+                bitmap = loadedWallpaper,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
