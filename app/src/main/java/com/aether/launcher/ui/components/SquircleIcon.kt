@@ -45,6 +45,7 @@ import androidx.core.graphics.drawable.toBitmap
 fun SquircleIcon(
     label: String,
     iconDrawable: Drawable?,
+    iconBitmap: Bitmap? = null,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     onLongClick: (() -> Unit)? = null,
@@ -54,7 +55,7 @@ fun SquircleIcon(
     isBlurEnabled: Boolean = true,
     labelColor: Color? = null
 ) {
-    val bitmap = remember(iconDrawable) {
+    val fallbackBitmap = remember(iconDrawable) {
         iconDrawable?.let { drawable ->
             if (drawable is BitmapDrawable && drawable.bitmap != null && !drawable.bitmap.isRecycled) {
                 drawable.bitmap
@@ -66,6 +67,8 @@ fun SquircleIcon(
             }
         }
     }
+
+    val bitmap = iconBitmap ?: fallbackBitmap
 
     val accessibleDescription = if (label.isNotEmpty()) "Launch $label" else "Application icon"
 
