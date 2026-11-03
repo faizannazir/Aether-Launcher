@@ -57,6 +57,7 @@ fun FloatingDock(
             SquircleIcon(
                 label = app.label,
                 iconDrawable = app.icon,
+                iconBitmap = app.iconBitmap,
                 onClick = { onAppClick(app) },
                 showLabel = false,
                 isDarkTheme = isDarkTheme,
