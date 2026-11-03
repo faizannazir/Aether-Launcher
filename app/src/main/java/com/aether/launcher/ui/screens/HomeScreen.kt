@@ -42,12 +42,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -71,7 +73,9 @@ import com.aether.launcher.ui.components.SmartFolder2x2
 import com.aether.launcher.ui.components.SquircleIcon
 import com.aether.launcher.ui.components.WidgetHostContainer
 import com.aether.launcher.viewmodel.LauncherState
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -163,14 +167,18 @@ private fun WallpaperBackdrop(
     isDarkTheme: Boolean
 ) {
     val context = LocalContext.current
-    val wallpaper = remember(context) {
-        runCatching {
-            WallpaperManager.getInstance(context).drawable?.toBitmap(
-                width = 720,
-                height = 1600,
-                config = Bitmap.Config.ARGB_8888
-            )?.asImageBitmap()
-        }.getOrNull()
+    // Wallpaper IPC and bitmap rasterization can be expensive. Keep them off the
+    // main thread so the saved launcher layout can draw immediately with a fallback.
+    val wallpaper by produceState<ImageBitmap?>(initialValue = null, key1 = context) {
+        value = withContext(Dispatchers.IO) {
+            runCatching {
+                WallpaperManager.getInstance(context).drawable?.toBitmap(
+                    width = 540,
+                    height = 1200,
+                    config = Bitmap.Config.ARGB_8888
+                )?.asImageBitmap()
+            }.getOrNull()
+        }
     }
 
     Box(modifier = modifier) {
