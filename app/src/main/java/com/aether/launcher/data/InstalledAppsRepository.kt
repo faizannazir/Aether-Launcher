@@ -5,7 +5,11 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
-import android.graphics.drawable.Drawable
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import androidx.core.graphics.drawable.toBitmap
+import java.io.File
+import java.security.MessageDigest
 import androidx.collection.LruCache
 import com.aether.launcher.data.model.AppCategory
 import com.aether.launcher.data.model.AppItem
@@ -27,8 +31,73 @@ class InstalledAppsRepository(private val context: Context) {
     private var packageReceiver: BroadcastReceiver? = null
     private var packageScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    // Cache activity icons by component; a launcher package may expose more than one activity.
-    private val iconCache = LruCache<String, Drawable>(256)
+    // Decoded icons stay off the main thread and the memory cache is bounded by bytes.
+    private val iconCache = object : LruCache<String, Bitmap>(32 * 1024) {
+        override fun sizeOf(key: String, value: Bitmap): Int =
+            (value.byteCount / 1024).coerceAtLeast(1)
+    }
+    private val iconDirectory = File(context.cacheDir, "launcher-icons")
+    private val maxDiskIconCacheBytes = 32L * 1024L * 1024L
+
+    private fun iconKey(packageName: String, className: String, lastUpdateTime: Long): String =
+        "$packageName/$className/$lastUpdateTime"
+
+    private fun iconFile(key: String): File {
+        val digest = MessageDigest.getInstance("SHA-256")
+            .digest(key.toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
+        return File(iconDirectory, "$digest.png")
+    }
+
+    private fun loadIconBitmap(key: String, packageName: String, className: String): Bitmap? {
+        iconCache.get(key)?.let { return it }
+        val diskFile = iconFile(key)
+        if (diskFile.isFile) {
+            BitmapFactory.decodeFile(diskFile.absolutePath)?.let { cached ->
+                iconCache.put(key, cached)
+                diskFile.setLastModified(System.currentTimeMillis())
+                return cached
+            }
+        }
+
+        val drawable = runCatching {
+            context.packageManager.getActivityIcon(android.content.ComponentName(packageName, className))
+        }.getOrNull() ?: return null
+        val bitmap = runCatching {
+            drawable.toBitmap(width = 192, height = 192, config = Bitmap.Config.ARGB_8888)
+        }.getOrNull() ?: return null
+
+        iconCache.put(key, bitmap)
+        runCatching {
+            iconDirectory.mkdirs()
+            val temporary = File(diskFile.parentFile, "${diskFile.name}.tmp")
+            temporary.outputStream().use { output ->
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
+            }
+            if (!temporary.renameTo(diskFile)) {
+                temporary.copyTo(diskFile, overwrite = true)
+                temporary.delete()
+            }
+            trimDiskIconCache()
+        }
+        return bitmap
+    }
+
+    private fun trimDiskIconCache() {
+        val files = iconDirectory.listFiles()?.filter { it.isFile && it.extension == "png" } ?: return
+        var totalBytes = files.sumOf { it.length() }
+        if (totalBytes <= maxDiskIconCacheBytes) return
+        for (file in files.sortedBy { it.lastModified() }) {
+            if (totalBytes <= maxDiskIconCacheBytes) break
+            val size = file.length()
+            if (file.delete()) totalBytes -= size
+        }
+    }
+
+    private fun invalidateIconCache() {
+        iconCache.evictAll()
+        iconDirectory.listFiles()?.forEach { it.delete() }
+    }
 
     suspend fun loadInstalledApps() = withContext(Dispatchers.IO) {
         val pm = context.packageManager
@@ -60,7 +129,6 @@ class InstalledAppsRepository(private val context: Context) {
                     packageName = packageName,
                     className = activityInfo.name,
                     label = resolveInfo.loadLabel(pm).toString(),
-                    icon = iconCache.get(packageName + "/" + activityInfo.name),
                     category = category
                 )
             }
@@ -72,18 +140,18 @@ class InstalledAppsRepository(private val context: Context) {
         // Resolve icons in small batches and publish incrementally. The home screen
         // becomes interactive while remaining icons continue loading in the background.
         appsWithoutIcons.chunked(16).forEach { batch ->
-            val resolvedIcons = batch.map { app ->
-                val key = app.packageName + "/" + app.className
-                val icon = iconCache.get(key) ?: runCatching {
-                    pm.getActivityIcon(android.content.ComponentName(app.packageName, app.className))
-                }.getOrNull()?.also { iconCache.put(key, it) }
-                app.packageName to icon
-            }.toMap()
+            val resolvedIcons = batch.associate { app ->
+                val updateTime = runCatching {
+                    pm.getApplicationInfo(app.packageName, PackageManager.MATCH_DISABLED_COMPONENTS).lastUpdateTime
+                }.getOrDefault(0L)
+                val key = iconKey(app.packageName, app.className, updateTime)
+                app.packageName to loadIconBitmap(key, app.packageName, app.className)
+            }
 
             val current = _installedApps.value
             _installedApps.value = current.map { app ->
                 val resolved = resolvedIcons[app.packageName]
-                if (resolved != null) app.copy(icon = resolved) else app
+                if (resolved != null) app.copy(iconBitmap = resolved) else app
             }
         }
     }
@@ -93,6 +161,7 @@ class InstalledAppsRepository(private val context: Context) {
         packageReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 packageScope.launch {
+                    invalidateIconCache()
                     loadInstalledApps()
                 }
             }
