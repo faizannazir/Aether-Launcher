@@ -94,11 +94,6 @@ class InstalledAppsRepository(private val context: Context) {
         }
     }
 
-    private fun invalidateIconCache() {
-        iconCache.evictAll()
-        iconDirectory.listFiles()?.forEach { it.delete() }
-    }
-
     suspend fun loadInstalledApps() = withContext(Dispatchers.IO) {
         val pm = context.packageManager
         val intent = Intent(Intent.ACTION_MAIN, null).apply {
@@ -161,7 +156,8 @@ class InstalledAppsRepository(private val context: Context) {
         packageReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 packageScope.launch {
-                    invalidateIconCache()
+                    // Package update timestamps are part of each cache key. Keep
+                    // unaffected apps warm when a different package changes.
                     loadInstalledApps()
                 }
             }
