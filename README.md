@@ -72,6 +72,34 @@ To build a release APK:
 
 Release signing must use the established keystore. See [Install and update](#install-and-update).
 
+## Performance and profiling
+
+The launcher restores the persisted home layout before refreshing installed applications. App identities and labels are published first; launcher icons are decoded in background batches and reused from a byte-bounded in-memory cache and a bounded disk cache. Wallpaper loading and scaling also run away from the UI thread, with a lightweight fallback shown while the wallpaper is prepared.
+
+Release builds enable R8 code shrinking and resource shrinking. CI builds both debug and optimized release APKs, reports their sizes, and uploads both artifacts.
+
+### Baseline Profiles and Macrobenchmark
+
+A dedicated `:baselineprofile` module contains:
+- A Baseline Profile journey covering launcher startup, opening the app drawer and scrolling.
+- A cold-start benchmark using `StartupTimingMetric`.
+- A drawer-scroll benchmark using `FrameTimingMetric`.
+
+Build the benchmark test APK:
+
+```bash
+./gradlew :baselineprofile:assemble
+```
+
+Generate a Baseline Profile and run the macrobenchmarks on a connected Android 13+ device (a physical device is recommended for representative performance numbers):
+
+```bash
+./gradlew :app:generateBaselineProfile
+./gradlew :baselineprofile:connectedAndroidTest
+```
+
+The regular CI pipeline compiles the benchmark module but does not run device-dependent instrumentation tests. No sub-400 ms cold-start or 60/120 fps claim is made until measurements have been collected on real hardware.
+
 ## Set Aether as the default launcher
 
 1. Install and open Aether Launcher.
