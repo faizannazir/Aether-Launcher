@@ -1,5 +1,6 @@
 package com.aether.launcher.data.model
 
+import android.graphics.Bitmap
 import android.graphics.drawable.Drawable
 
 data class AppItem(
@@ -7,7 +8,8 @@ data class AppItem(
     val className: String,
     val label: String,
     val icon: Drawable? = null,
-    val category: AppCategory = AppCategory.ALL
+    val category: AppCategory = AppCategory.ALL,
+    val iconBitmap: Bitmap? = null
 )
 
 enum class AppCategory(val displayName: String) {
