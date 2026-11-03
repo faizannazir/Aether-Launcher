@@ -39,6 +39,9 @@ jobs:
       - name: Build debug APK
         run: ./gradlew assembleDebug --no-daemon --stacktrace
 
+      - name: Compile baseline profile and macrobenchmark tests
+        run: ./gradlew :baselineprofile:assemble --no-daemon --stacktrace
+
       - name: Build optimized release APK
         run: ./gradlew assembleRelease --no-daemon --stacktrace
 
