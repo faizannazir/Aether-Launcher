@@ -17,10 +17,10 @@ class AppSearchEngineTest {
     fun setUp() {
         searchEngine = AppSearchEngine()
         testApps = listOf(
-            AppItem("com.spotify.music", "MainActivity", "Spotify", null, AppCategory.MEDIA),
-            AppItem("com.google.android.youtube", "MainActivity", "YouTube", null, AppCategory.MEDIA),
-            AppItem("com.google.android.apps.maps", "MainActivity", "Google Maps", null, AppCategory.PRODUCTIVITY),
-            AppItem("com.aether.settings", "SettingsActivity", "Settings", null, AppCategory.UTILITIES)
+            AppItem("com.spotify.music", "MainActivity", "Spotify", AppCategory.MEDIA),
+            AppItem("com.google.android.youtube", "MainActivity", "YouTube", AppCategory.MEDIA),
+            AppItem("com.google.android.apps.maps", "MainActivity", "Google Maps", AppCategory.PRODUCTIVITY),
+            AppItem("com.aether.settings", "SettingsActivity", "Settings", AppCategory.UTILITIES)
         )
     }
 

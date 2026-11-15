@@ -8,27 +8,29 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
 private val DarkColorScheme = darkColorScheme(
-    primary = PixelFrostBlue,
-    secondary = RadiantIris,
-    tertiary = LuminousOrchid,
-    background = DeepObsidian,
-    surface = DeepObsidian,
-    onPrimary = ObsidianSlate,
-    onSecondary = Color.White,
-    onBackground = PearlWhite,
-    onSurface = PearlWhite
+    primary = Color(0xFFE8D7BC),
+    onPrimary = Color(0xFF30271B),
+    primaryContainer = Color(0xFF42382B),
+    onPrimaryContainer = Color(0xFFFFE9CB),
+    background = Color(0xFF171714),
+    surface = Color(0xFF171714),
+    surfaceVariant = Color(0xFF252420),
+    onSurface = Color(0xFFECE9E2),
+    onSurfaceVariant = Color(0xFFC8C3B9),
+    outline = Color(0xFF8A857A)
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = ObsidianSlate,
-    secondary = ElectricSky,
-    tertiary = LuminousOrchid,
-    background = PearlWhite,
-    surface = PearlWhite,
+    primary = Color(0xFF584936),
     onPrimary = Color.White,
-    onSecondary = Color.White,
-    onBackground = ObsidianSlate,
-    onSurface = ObsidianSlate
+    primaryContainer = Color(0xFFF1E0C8),
+    onPrimaryContainer = Color(0xFF2F271D),
+    background = Color(0xFFFAF9F5),
+    surface = Color(0xFFFAF9F5),
+    surfaceVariant = Color(0xFFF0EDE6),
+    onSurface = Color(0xFF23221E),
+    onSurfaceVariant = Color(0xFF57534B),
+    outline = Color(0xFF827A6E)
 )
 
 @Composable

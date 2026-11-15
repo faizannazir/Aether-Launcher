@@ -46,11 +46,12 @@ fun FolderModal(
     isBlurEnabled: Boolean,
     onAppClick: (AppItem) -> Unit,
     onTitleChange: (String) -> Unit,
+    onUngroup: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val textColor = if (isDarkTheme) Color.White else Color(0xFF191C1E)
     var isEditingTitle by remember { mutableStateOf(false) }
-    var folderTitle by remember { mutableStateOf(folder.title) }
+    var folderTitle by remember(folder.id) { mutableStateOf(folder.title) }
 
     val folderApps = installedApps.filter { app ->
         folder.appPackages.contains(app.packageName)
@@ -132,25 +133,22 @@ fun FolderModal(
                 ) {
                     items(folderApps) { app ->
                         SquircleIcon(
-                            label = app.label,
-                            iconDrawable = app.icon,
+                            app = app,
                             onClick = {
                                 onAppClick(app)
                                 onDismiss()
                             },
                             isDarkTheme = isDarkTheme,
-                            isBlurEnabled = isBlurEnabled
+                            labelColor = textColor
                         )
                     }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                Button(
-                    onClick = onDismiss,
-                    shape = RoundedCornerShape(20.dp)
-                ) {
-                    Text("Done")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    androidx.compose.material3.TextButton(onClick = onUngroup) { Text("Ungroup") }
+                    Button(onClick = onDismiss, shape = RoundedCornerShape(20.dp)) { Text("Done") }
                 }
             }
         }

@@ -1,111 +1,197 @@
 package com.aether.launcher.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
-import com.aether.launcher.viewmodel.LauncherState
+import com.aether.launcher.data.model.GestureAction
+import com.aether.launcher.data.model.HomeBackground
+import com.aether.launcher.data.model.HomeGesture
+import com.aether.launcher.data.model.HomeGrid
+import com.aether.launcher.data.model.LauncherOptions
+import com.aether.launcher.data.model.LauncherTheme
+
+private enum class SettingsPage(val title: String) {
+    HOME("Home"), GESTURES("Gestures"), ANDROID("Android")
+}
+
+internal enum class AndroidShortcut(val title: String) {
+    SETTINGS("Android Settings"), INTERNET("Internet controls"), BLUETOOTH("Bluetooth"), NAVIGATION("System navigation"),
+    DISPLAY("Display"), SOUND("Sound"), NOTIFICATIONS("Notifications"),
+    ACCESSIBILITY("Accessibility"), WALLPAPER("Wallpaper & style")
+}
 
 @Composable
-fun LauncherSettingsScreen(
-    state: LauncherState,
+internal fun LauncherSettingsScreen(
+    options: LauncherOptions,
     isDefaultLauncher: Boolean,
     onBack: () -> Unit,
     onSetDefaultLauncher: () -> Unit,
-    onOpenSystemSettings: () -> Unit,
-    onDarkThemeChange: (Boolean) -> Unit,
-    onBlurChange: (Boolean) -> Unit,
-    onBlurIntensityChange: (Float) -> Unit,
-    onGridColumnsChange: (String) -> Unit
+    onAndroidShortcut: (AndroidShortcut) -> Unit,
+    onStarterLayout: () -> Unit,
+    onUpdate: ((LauncherOptions) -> LauncherOptions) -> Unit
 ) {
-    val foreground = if (state.isDarkTheme) Color(0xFFF2F4F6) else Color(0xFF17212B)
-    val muted = foreground.copy(alpha = 0.62f)
-    val background = if (state.isDarkTheme) Color(0xFF101419) else Color(0xFFF4F6F8)
-    val card = if (state.isDarkTheme) Color(0xFF1B222A) else Color.White
-
+    var selected by rememberSaveable { mutableStateOf(SettingsPage.HOME) }
+    var confirmStarter by remember { mutableStateOf(false) }
+    if (confirmStarter) AlertDialog(
+        onDismissRequest = { confirmStarter = false },
+        title = { Text("Apply starter layout?") },
+        text = { Text("Replace Home pages, widgets and dock with the new starter layout. Your appearance and gesture preferences will be kept.") },
+        confirmButton = {
+            TextButton(onClick = { confirmStarter = false; onStarterLayout() }) { Text("Apply") }
+        },
+        dismissButton = { TextButton(onClick = { confirmStarter = false }) { Text("Cancel") } }
+    )
     Column(
-        Modifier.fillMaxSize().background(background).statusBarsPadding().navigationBarsPadding().padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)
+            .statusBarsPadding().navigationBarsPadding()
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Rounded.ArrowBack, "Back", tint = foreground, modifier = Modifier.clickable(onClick = onBack).padding(8.dp))
-            Column(Modifier.weight(1f).padding(start = 8.dp)) {
-                Text("Settings", style = MaterialTheme.typography.headlineSmall, color = foreground)
-                Text("Aether Launcher", style = MaterialTheme.typography.bodySmall, color = muted)
-            }
-            Icon(Icons.Rounded.Settings, null, tint = muted)
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
+            Text("Launcher settings", style = MaterialTheme.typography.headlineSmall)
         }
-        Card(colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(22.dp)) {
-            Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.CheckCircle, null, tint = if (isDefaultLauncher) Color(0xFF269B70) else muted)
-                    Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                        Text(if (isDefaultLauncher) "Aether is your Home app" else "Choose Aether as Home app", color = foreground, style = MaterialTheme.typography.titleMedium)
-                        Text(if (isDefaultLauncher) "Home button opens Aether" else "Android will ask you to confirm this change", color = muted, style = MaterialTheme.typography.bodySmall)
+        TabRow(selectedTabIndex = selected.ordinal) {
+            SettingsPage.entries.forEach { page ->
+                Tab(selected = selected == page, onClick = { selected = page }, text = { Text(page.title) })
+            }
+        }
+        key(selected) {
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                when (selected) {
+                    SettingsPage.HOME -> {
+                        item {
+                            SettingsGroup("Appearance") {
+                                OptionRow("Theme", options.theme, LauncherTheme.entries, LauncherTheme::title) { value ->
+                                    onUpdate { it.copy(theme = value) }
+                                }
+                                OptionRow("Background", options.background, HomeBackground.entries, HomeBackground::title) { value ->
+                                    onUpdate { it.copy(background = value) }
+                                }
+                                SettingsSwitch("Translucent surfaces", options.glass) { value -> onUpdate { it.copy(glass = value) } }
+                                if (options.glass) {
+                                    OptionRow("Surface opacity", options.glassOpacity, listOf(0f, 0.25f, 0.5f, 0.75f, 1f),
+                                        { "${(it * 100).toInt()}%" }) { value -> onUpdate { it.copy(glassOpacity = value) } }
+                                }
+                            }
+                        }
+                        item {
+                            SettingsGroup("Home layout") {
+                                OptionRow("Home grid", options.grid, HomeGrid.entries, HomeGrid::title) { value ->
+                                    onUpdate { it.copy(grid = value) }
+                                }
+                                OptionRow("Home icon size", options.iconSize, listOf(36, 40, 46, 50, 56), { "$it dp" }) { value ->
+                                    onUpdate { it.copy(iconSize = value) }
+                                }
+                                SettingsSwitch("App labels", options.showLabels) { value -> onUpdate { it.copy(showLabels = value) } }
+                                SettingsSwitch("Clock and date", options.showClock) { value -> onUpdate { it.copy(showClock = value) } }
+                                SettingsSwitch("Search bar", options.showSearch) { value -> onUpdate { it.copy(showSearch = value) } }
+                                SettingsSwitch("Dock", options.showDock) { value -> onUpdate { it.copy(showDock = value) } }
+                                TextButton(onClick = { confirmStarter = true }) { Text("Apply starter layout") }
+                            }
+                        }
+                        item {
+                            SettingsGroup("App drawer") {
+                                OptionRow("Drawer columns", options.drawerColumns, listOf(3, 4, 5), Int::toString) { value ->
+                                    onUpdate { it.copy(drawerColumns = value) }
+                                }
+                                SettingsSwitch("App categories", options.showCategories) { value -> onUpdate { it.copy(showCategories = value) } }
+                            }
+                        }
                     }
-                }
-                if (!isDefaultLauncher) Button(onClick = onSetDefaultLauncher, modifier = Modifier.fillMaxWidth()) { Text("Set as default launcher") }
-            }
-        }
-        Text("APPEARANCE", color = muted, style = MaterialTheme.typography.labelMedium)
-        Card(colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(22.dp)) {
-            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                PreferenceSwitch("Dark appearance", "Use a darker launcher surface", state.isDarkTheme, onDarkThemeChange, foreground, muted)
-                PreferenceSwitch("Translucent surfaces", "Use blur only where supported", state.isBlurEnabled, onBlurChange, foreground, muted)
-                Column {
-                    Text("Surface strength: ${(state.blurIntensity * 100).toInt()}%", color = foreground)
-                    Slider(state.blurIntensity, onBlurIntensityChange)
-                }
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Home screen columns", color = foreground)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf("3x5", "4x5", "5x5").forEach { grid ->
-                            FilterChip(state.gridColumns == grid, { onGridColumnsChange(grid) }, label = { Text(grid.substringBefore("x")) })
+                    SettingsPage.GESTURES -> item {
+                        SettingsGroup("Home gestures") {
+                            HomeGesture.entries.forEach { gesture ->
+                                OptionRow(gesture.title, options.actionFor(gesture), GestureAction.entries, GestureAction::title) { value ->
+                                    onUpdate { it.copy(gestures = it.gestures + (gesture to value)) }
+                                }
+                            }
+                            SettingsSwitch("Swipe up on an app for widgets", options.swipeForWidgets) { value ->
+                                onUpdate { it.copy(swipeForWidgets = value) }
+                            }
+                            Text("Swipe sideways to change Home pages.", modifier = Modifier.padding(14.dp),
+                                style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                    SettingsPage.ANDROID -> {
+                        item {
+                            SettingsGroup("Default Home app") {
+                                Text(if (isDefaultLauncher) "Aether is active" else "Choose Aether in Android's Home app settings",
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp))
+                                TextButton(onClick = onSetDefaultLauncher) { Text("Default Home settings") }
+                            }
+                        }
+                        item {
+                            SettingsGroup("Open Android controls") {
+                                AndroidShortcut.entries.forEach { shortcut ->
+                                    TextButton(onClick = { onAndroidShortcut(shortcut) }, modifier = Modifier.fillMaxWidth()) {
+                                        Text(shortcut.title, modifier = Modifier.weight(1f))
+                                    }
+                                }
+                            }
                         }
                     }
                 }
             }
         }
-        Text("DEVICE", color = muted, style = MaterialTheme.typography.labelMedium)
-        Card(colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(22.dp)) {
-            Row(Modifier.fillMaxWidth().clickable(onClick = onOpenSystemSettings).padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.Tune, null, tint = foreground)
-                Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                    Text("Android system settings", color = foreground)
-                    Text("Open the device's actual Settings app", color = muted, style = MaterialTheme.typography.bodySmall)
-                }
-                Text("Open", color = MaterialTheme.colorScheme.primary)
-            }
-        }
-        Text("Launcher preferences affect Aether screens. Android controls system Settings, Quick Settings, lock screen and gesture navigation.", color = muted, style = MaterialTheme.typography.bodySmall)
     }
 }
 
 @Composable
-private fun PreferenceSwitch(
-    title: String,
-    subtitle: String,
-    checked: Boolean,
-    onChange: (Boolean) -> Unit,
-    foreground: Color,
-    muted: Color
-) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f).padding(end = 12.dp)) {
-            Text(title, color = foreground, style = MaterialTheme.typography.titleSmall)
-            Text(subtitle, color = muted, style = MaterialTheme.typography.bodySmall)
+private fun SettingsGroup(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(Modifier.padding(vertical = 8.dp)) {
+            Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(14.dp))
+            content()
         }
-        Switch(checked, onChange)
+    }
+}
+
+@Composable
+private fun SettingsSwitch(title: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 52.dp)
+            .toggleable(checked, role = Role.Switch, onValueChange = onChange).padding(horizontal = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(title, Modifier.weight(1f))
+        Switch(checked, onCheckedChange = null)
+    }
+}
+
+@Composable
+private fun <T> OptionRow(title: String, selected: T, options: List<T>, name: (T) -> String, onChange: (T) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        TextButton(onClick = { open = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
+            Text(title, Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurface)
+            Text(name(selected), modifier = Modifier.padding(start = 10.dp))
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            options.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(name(option)) },
+                    onClick = {
+                        open = false
+                        onChange(option)
+                    }
+                )
+            }
+        }
     }
 }

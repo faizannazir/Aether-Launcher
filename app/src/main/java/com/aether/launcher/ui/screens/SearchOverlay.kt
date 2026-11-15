@@ -1,5 +1,6 @@
 package com.aether.launcher.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -8,27 +9,24 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.aether.launcher.data.model.AppItem
-import com.aether.launcher.glass.GlassLevel
-import com.aether.launcher.glass.glassSurface
 import com.aether.launcher.ui.components.SquircleIcon
 
 @Composable
@@ -40,44 +38,29 @@ fun SearchOverlay(
 ) {
     val textColor = if (state.isDarkTheme) Color.White else Color(0xFF191C1E)
 
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { focus.requestFocus() }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .glassSurface(
-                level = GlassLevel.STRONG,
-                isDarkTheme = state.isDarkTheme,
-                blurEnabled = state.isBlurEnabled,
-                shape = RoundedCornerShape(0.dp)
-            )
+            .background(MaterialTheme.colorScheme.surface)
             .statusBarsPadding()
+            .navigationBarsPadding()
+            .imePadding()
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp)
         ) {
-            // Search Bar Input
-            OutlinedTextField(
+            LauncherSearchBar(
+                foreground = textColor,
+                background = MaterialTheme.colorScheme.surfaceVariant,
+                modifier = Modifier.focusRequester(focus),
                 value = state.searchQuery,
-                onValueChange = onQueryChange,
-                placeholder = { Text("Search apps, contacts, web...") },
-                leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = "Search") },
-                trailingIcon = {
-                    Icon(
-                        Icons.Rounded.Close,
-                        contentDescription = "Close",
-                        modifier = Modifier.clickable(onClick = onClose)
-                    )
-                },
-                singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = textColor,
-                    unfocusedTextColor = textColor,
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = textColor.copy(alpha = 0.3f)
-                ),
-                shape = RoundedCornerShape(28.dp),
-                modifier = Modifier.fillMaxWidth()
+                onChange = onQueryChange,
+                onClose = onClose
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -104,12 +87,10 @@ fun SearchOverlay(
                                 .padding(vertical = 8.dp)
                         ) {
                             SquircleIcon(
-                                label = "",
-                                iconDrawable = app.icon,
+                                app = app,
                                 onClick = { onAppClick(app) },
                                 showLabel = false,
                                 isDarkTheme = state.isDarkTheme,
-                                isBlurEnabled = state.isBlurEnabled,
                                 size = 44.dp
                             )
                             Spacer(modifier = Modifier.padding(start = 12.dp))

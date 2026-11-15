@@ -25,19 +25,23 @@ A lightweight native Android launcher with a clean home screen, searchable app d
 
 ## About
 
-Aether Launcher is an independent Android home-screen replacement. Its visual direction combines a restrained, minimal layout with soft glass-inspired surfaces and clear app organization. It is not Huawei software and does not replace Android system UI.
+Aether is an independent Android Home app. Its large folders and service cards draw on Huawei's HarmonyOS desktop, while its system shortcuts open Android's native controls.
 
 ## Features
 
-- **Home screen:** live date and clock, app grid, floating dock and saved layout.
-- **Multiple pages:** add home pages with the **+** control and move between them using page indicators.
-- **Pin apps:** long-press an app in the drawer to pin it to the selected home page. A new page is created when the current page is full.
-- **App drawer:** discover installed launchable apps, search and browse categories.
-- **Gesture navigation:** swipe up from the dedicated area below the dock to open the app drawer.
-- **Folders and widgets:** organize shortcuts and host supported Android widgets.
-- **Appearance:** preferences for dark appearance, translucency and grid columns.
-- **App refresh:** package changes trigger an app-list refresh; activity icons are cached to reduce repeated loading.
-- **System integration:** Android's default Home flow and shortcuts to supported system settings.
+- **Home:** Android wallpaper, a neutral gradient or solid background, optional clock, compact search and a customizable dock. A fresh layout starts with a controls card, a Tools folder when supported apps are installed, and two populated pages when enough apps are available.
+- **Layout:** choose the grid, icon size and labels. Hold an app to add or remove it from Home or the dock, or group it into a large folder with individually tappable apps.
+- **Edit Home:** pinch in, hold empty space or hold a page dot to add a page, Android widget or Android controls card, or to open launcher settings. Swipe sideways to change pages.
+- **Gestures:** assign swipe up, swipe down, double tap, pinch and hold to launcher actions or supported native Android controls. Swipe up on a supported Home app to choose its Android widget. A small line marks apps with widgets. This behavior can be disabled in gesture settings.
+- **Drawer:** swipe up from Home, including from the dock. Search installed apps or jump by letter with the alphabet index. Pull down from the top of the list to return Home. Drawer columns and category chips are configurable. Search uses the same 44 dp control on Home, in the drawer and in search results.
+- **Android integration:** open Wallpaper & style, the Home app chooser, navigation mode, Internet, sound, display, notifications and accessibility. Android provides the system UI and applies changes made in these controls.
+
+Existing installations can apply the new default pages from Edit Home → Launcher settings → Home → Apply starter layout. Android shows an in-app confirmation before the pages, widgets and dock are replaced.
+
+## Performance
+
+
+The launcher queries app labels on a background dispatcher. It decodes icons on demand for visible items and caches the results in a 6 MiB memory cache. Home, the drawer and search compose one screen at a time. The release build uses R8 and resource shrinking.
 
 ## Getting started
 

@@ -1,206 +1,203 @@
 package com.aether.launcher.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.aether.launcher.data.AppSearchEngine
 import com.aether.launcher.data.model.AppCategory
 import com.aether.launcher.data.model.AppItem
-import com.aether.launcher.glass.GlassLevel
-import com.aether.launcher.glass.glassSurface
 import com.aether.launcher.ui.components.SquircleIcon
+import com.aether.launcher.viewmodel.LauncherState
+import kotlinx.coroutines.launch
+import kotlin.math.abs
+import kotlin.math.floor
 
 @Composable
-fun AppDrawerScreen(
-    state: com.aether.launcher.viewmodel.LauncherState,
-    onAppClick: (AppItem) -> Unit,
-    onPinApp: (AppItem) -> Unit = {},
+internal fun AppDrawerScreen(
+    state: LauncherState,
+    actions: AppActions,
     onCategorySelect: (AppCategory) -> Unit,
-    onCloseDrawer: () -> Unit,
-    onSettingsClick: () -> Unit = {}
+    onCloseDrawer: () -> Unit
 ) {
-    var drawerSearchQuery by remember { mutableStateOf("") }
-    val textColor = if (state.isDarkTheme) Color.White else Color(0xFF191C1E)
-    val containerBg = if (state.isDarkTheme) Color(0xF2121316) else Color(0xF2F0F4F8)
+    var query by remember { mutableStateOf("") }
+    val grid = rememberLazyGridState()
+    val close by rememberUpdatedState(onCloseDrawer)
+    val focus = LocalFocusManager.current
+    val scope = rememberCoroutineScope()
+    val search = remember { AppSearchEngine() }
+    val foreground = MaterialTheme.colorScheme.onSurface
+    val category = if (state.options.showCategories) state.selectedCategory else AppCategory.ALL
+    val apps = remember(state.installedApps, category, query) {
+        val matching = if (category == AppCategory.ALL) state.installedApps
+            else state.installedApps.filter { it.category == category }
+        if (query.isBlank()) matching else search.search(query, matching)
+    }
+    val sections = remember(apps, query.isBlank()) {
+        if (query.isNotBlank()) emptyMap()
+        else apps.groupBy(::sectionFor).toSortedMap(compareBy<String> { it == "#" }.thenBy { it })
+    }
+    val jumpTargets = remember(sections) {
+        var index = 0
+        sections.mapValues { (_, entries) ->
+            val target = index
+            index += entries.size + 1
+            target
+        }
+    }
+    LaunchedEffect(query, category) { grid.scrollToItem(0) }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(containerBg)
-            .statusBarsPadding()
+    Column(
+        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)
+            .statusBarsPadding().navigationBarsPadding().imePadding()
+            .semantics {
+                customActions = listOf(CustomAccessibilityAction("Return to Home") { close(); true })
+            }
+            .pointerInput(grid) {
+                val threshold = 48.dp.toPx()
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    if (grid.canScrollBackward) return@awaitEachGesture
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        val finger = event.changes.firstOrNull { it.id == down.id } ?: break
+                        val travel = finger.position - down.position
+                        if (travel.y < -viewConfiguration.touchSlop || abs(travel.x) > threshold) break
+                        if (!finger.pressed) {
+                            if (travel.y > threshold) close()
+                            break
+                        }
+                    }
+                }
+            }
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp)
-        ) {
-            // Header Row
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = "App Drawer",
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = textColor,
-                    modifier = Modifier.weight(1f)
-                )
-
-                IconButton(onClick = onSettingsClick) {
-                    Icon(Icons.Rounded.Settings, contentDescription = "Launcher settings", tint = textColor)
-                }
-                IconButton(onClick = onCloseDrawer) {
-                    Icon(Icons.Rounded.Close, contentDescription = "Close", tint = textColor)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Inline Drawer Search Field
-            OutlinedTextField(
-                value = drawerSearchQuery,
-                onValueChange = { drawerSearchQuery = it },
-                placeholder = { Text("Search apps...", color = textColor.copy(alpha = 0.5f)) },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Rounded.Search,
-                        contentDescription = "Search",
-                        tint = textColor.copy(alpha = 0.7f)
-                    )
-                },
-                trailingIcon = {
-                    if (drawerSearchQuery.isNotEmpty()) {
-                        Icon(
-                            imageVector = Icons.Rounded.Close,
-                            contentDescription = "Clear search",
-                            tint = textColor.copy(alpha = 0.7f),
-                            modifier = Modifier.clickable { drawerSearchQuery = "" }
-                        )
-                    }
-                },
-                singleLine = true,
-                shape = RoundedCornerShape(16.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = textColor.copy(alpha = 0.05f),
-                    unfocusedContainerColor = textColor.copy(alpha = 0.05f),
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = Color.Transparent,
-                    focusedTextColor = textColor,
-                    unfocusedTextColor = textColor
-                ),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Category Filter Chips
+        LauncherSearchBar(
+            foreground, MaterialTheme.colorScheme.surfaceVariant,
+            Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+            value = query, onChange = { query = it }
+        )
+        if (state.options.showCategories) {
             LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth()
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(AppCategory.entries.toTypedArray()) { category ->
-                    val isSelected = state.selectedCategory == category
-                    Box(
-                        modifier = Modifier
-                            .clickable { onCategorySelect(category) }
-                            .glassSurface(
-                                level = if (isSelected) GlassLevel.BALANCED else GlassLevel.SUBTLE,
-                            isDarkTheme = state.isDarkTheme,
-                                blurEnabled = state.isBlurEnabled,
-                                shape = RoundedCornerShape(20.dp)
-                            )
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
-                    ) {
-                        Text(
-                            text = category.displayName,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = if (isSelected) MaterialTheme.colorScheme.primary else textColor.copy(alpha = 0.7f)
-                        )
-                    }
+                items(AppCategory.entries) { appCategory ->
+                    FilterChip(category == appCategory, onClick = { onCategorySelect(appCategory) },
+                        label = { Text(appCategory.displayName) })
                 }
             }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // Filtered App List
-            val categoryApps = if (state.selectedCategory == AppCategory.ALL) {
-                state.installedApps
-            } else {
-                state.installedApps.filter { it.category == state.selectedCategory }
+        }
+        if (apps.isEmpty()) {
+            Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                Text(if (query.isBlank()) "No apps here" else "No matching apps")
             }
-
-            val displayedApps = if (drawerSearchQuery.isBlank()) {
-                categoryApps
-            } else {
-                categoryApps.filter { it.label.contains(drawerSearchQuery, ignoreCase = true) }
-            }
-
-            if (displayedApps.isEmpty()) {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                ) {
-                    Text(
-                        text = if (state.installedApps.isEmpty()) "Loading applications..." else "No applications found",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = textColor.copy(alpha = 0.6f)
-                    )
-                }
-            } else {
+        } else {
+            Row(Modifier.weight(1f)) {
                 LazyVerticalGrid(
-                    columns = GridCells.Fixed(state.gridColumns.substringBefore("x").toIntOrNull()?.coerceIn(3, 5) ?: 4),
+                    columns = GridCells.Fixed(state.options.drawerColumns),
+                    state = grid,
                     modifier = Modifier.weight(1f),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    contentPadding = PaddingValues(start = 12.dp, end = 4.dp, bottom = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.spacedBy(9.dp)
                 ) {
-                    items(displayedApps, key = { it.packageName }) { app ->
-                        SquircleIcon(
-                            label = app.label,
-                            iconDrawable = app.icon,
-                            onClick = { onAppClick(app) },
-                            onLongClick = { onPinApp(app) },
-                            size = 44.dp,
-                            isDarkTheme = state.isDarkTheme,
-                            isBlurEnabled = state.isBlurEnabled
-                        )
+                    if (sections.isEmpty()) {
+                        items(apps, key = { it.packageName }) { AppCell(it, state, actions) }
+                    } else {
+                        sections.forEach { (letter, entries) ->
+                            item(key = "section_$letter", span = { GridItemSpan(maxLineSpan) }) {
+                                Text(letter, Modifier.padding(start = 8.dp, top = 7.dp),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            items(entries, key = { it.packageName }) { AppCell(it, state, actions) }
+                        }
                     }
                 }
+                if (jumpTargets.size > 1) {
+                    val letters = jumpTargets.keys.toList()
+                    IndexRail(letters, Modifier.fillMaxHeight().width(26.dp).padding(vertical = 8.dp)) { letter ->
+                        focus.clearFocus()
+                        scope.launch { grid.scrollToItem(jumpTargets.getValue(letter)) }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun sectionFor(app: AppItem): String =
+    app.label.trim().firstOrNull()?.takeIf { it.isLetter() }?.uppercase() ?: "#"
+
+@Composable
+private fun AppCell(app: AppItem, state: LauncherState, actions: AppActions) {
+    var menuOpen by remember { mutableStateOf(false) }
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        SquircleIcon(
+            app, onClick = { actions.launch(app) }, onLongClick = { menuOpen = true },
+            size = 42.dp, isDarkTheme = state.isDarkTheme,
+            labelColor = MaterialTheme.colorScheme.onSurface, modifier = Modifier.fillMaxWidth()
+        )
+        AppMenu(menuOpen, { menuOpen = false }, app, actions,
+            state.dockApps.any { it.packageName == app.packageName })
+    }
+}
+
+@Composable
+private fun IndexRail(letters: List<String>, modifier: Modifier, onJump: (String) -> Unit) {
+    val jump by rememberUpdatedState(onJump)
+    Column(
+        modifier.semantics {
+            customActions = letters.map { letter ->
+                CustomAccessibilityAction("Jump to $letter") { jump(letter); true }
+            }
+        }.pointerInput(letters) {
+            awaitEachGesture {
+                val down = awaitFirstDown()
+                var selected = -1
+                fun select(y: Float) {
+                    val index = floor(y / size.height * letters.size).toInt().coerceIn(0, letters.lastIndex)
+                    if (index != selected) {
+                        selected = index
+                        jump(letters[index])
+                    }
+                }
+                down.consume()
+                select(down.position.y)
+                while (true) {
+                    val finger = awaitPointerEvent().changes.firstOrNull { it.id == down.id && it.pressed } ?: break
+                    finger.consume()
+                    select(finger.position.y)
+                }
+            }
+        },
+        verticalArrangement = Arrangement.Center
+    ) {
+        letters.forEach { letter ->
+            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Text(letter, textAlign = TextAlign.Center, style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
             }
         }
     }

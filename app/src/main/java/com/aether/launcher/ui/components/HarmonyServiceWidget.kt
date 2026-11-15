@@ -1,181 +1,82 @@
 package com.aether.launcher.ui.components
 
-import android.content.Intent
-import android.provider.Settings
-import android.widget.Toast
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material.icons.rounded.Widgets
-import androidx.compose.material3.Icon
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.aether.launcher.data.model.HomeLayoutItem
-import com.aether.launcher.glass.GlassLevel
-import com.aether.launcher.glass.glassSurface
+import com.aether.launcher.ui.screens.AndroidShortcut
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun HarmonyServiceWidget(
-    widgetItem: HomeLayoutItem.ServiceWidget,
-    isDarkTheme: Boolean,
-    isBlurEnabled: Boolean,
-    onToggleFocus: () -> Unit,
-    modifier: Modifier = Modifier
+internal fun HarmonyServiceWidget(
+    item: HomeLayoutItem.ServiceWidget,
+    translucent: Boolean,
+    onShortcut: (AndroidShortcut) -> Unit,
+    onRemove: () -> Unit
 ) {
-    val context = LocalContext.current
-    val textColor = if (isDarkTheme) Color.White else Color(0xFF191C1E)
-    val accentColor = if (isDarkTheme) Color(0xFF00FBFF) else Color(0xFF0284C7)
-
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(4.dp)
-            .glassSurface(
-                level = GlassLevel.BALANCED,
-                isDarkTheme = isDarkTheme,
-                blurEnabled = isBlurEnabled,
-                shape = RoundedCornerShape(26.dp)
-            )
-            .padding(14.dp)
+    var confirmRemoval by remember { mutableStateOf(false) }
+    BoxWithConstraints(
+        Modifier.fillMaxSize().clip(RoundedCornerShape(22.dp))
+            .background(if (translucent) Color.Black.copy(alpha = 0.38f) else Color(0xFF252422))
+            .padding(horizontal = 8.dp, vertical = 4.dp)
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Rounded.Widgets,
-                        contentDescription = "Service Control",
-                        tint = accentColor,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Text(
-                        text = "  SERVICE WIDGET",
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        color = textColor.copy(alpha = 0.9f)
-                    )
+        val wide = maxWidth > 205.dp
+        Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
+            Text(
+                item.title, color = Color.White, style = MaterialTheme.typography.titleSmall,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 26.dp)
+                    .combinedClickable(
+                        onClick = { onShortcut(AndroidShortcut.SETTINGS) },
+                        onLongClick = { confirmRemoval = true },
+                        onLongClickLabel = "Remove controls card"
+                    ).padding(start = 6.dp)
+            )
+            if (wide) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Control("Internet", AndroidShortcut.INTERNET, onShortcut, Modifier.weight(1f))
+                    Control("Sound", AndroidShortcut.SOUND, onShortcut, Modifier.weight(1f))
                 }
-
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .background(accentColor, RoundedCornerShape(4.dp))
-                )
-            }
-
-            Column {
-                Text(
-                    text = widgetItem.title,
-                    style = MaterialTheme.typography.titleSmall.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
-                    color = textColor,
-                    maxLines = 1
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = widgetItem.subtitle,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = textColor.copy(alpha = 0.75f),
-                    maxLines = 1
-                )
-            }
-
-            // Quick Control Action Buttons
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                // Focus Toggle Button (Launcher Focus State)
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable(onClick = onToggleFocus)
-                        .glassSurface(
-                            level = GlassLevel.SUBTLE,
-                            isDarkTheme = isDarkTheme,
-                            blurEnabled = isBlurEnabled,
-                            shape = RoundedCornerShape(12.dp)
-                        )
-                        .padding(horizontal = 6.dp, vertical = 6.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.CheckCircle,
-                        contentDescription = "Launcher Focus Mode",
-                        tint = if (widgetItem.isFocusActive) accentColor else textColor.copy(alpha = 0.4f),
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Text(
-                        text = if (widgetItem.isFocusActive) " Focus ON" else " Focus OFF",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = textColor
-                    )
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Control("Display", AndroidShortcut.DISPLAY, onShortcut, Modifier.weight(1f))
+                    Control("Navigation", AndroidShortcut.NAVIGATION, onShortcut, Modifier.weight(1f))
                 }
-
-                // System Settings Launcher Button
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable {
-                            try {
-                                val intent = Intent(Settings.ACTION_SETTINGS).apply {
-                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                }
-                                context.startActivity(intent)
-                            } catch (e: Exception) {
-                                Toast.makeText(context, "Unable to open Settings", Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                        .glassSurface(
-                            level = GlassLevel.SUBTLE,
-                            isDarkTheme = isDarkTheme,
-                            blurEnabled = isBlurEnabled,
-                            shape = RoundedCornerShape(12.dp)
-                        )
-                        .padding(horizontal = 6.dp, vertical = 6.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Settings,
-                        contentDescription = "Settings",
-                        tint = textColor.copy(alpha = 0.9f),
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Text(
-                        text = " Settings",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = textColor
-                    )
-                }
+            } else {
+                Control("Internet", AndroidShortcut.INTERNET, onShortcut)
+                Control("Navigation", AndroidShortcut.NAVIGATION, onShortcut)
             }
         }
+    }
+    if (confirmRemoval) {
+        AlertDialog(
+            onDismissRequest = { confirmRemoval = false },
+            title = { Text("Remove controls card?") },
+            confirmButton = { TextButton(onClick = onRemove) { Text("Remove") } },
+            dismissButton = { TextButton(onClick = { confirmRemoval = false }) { Text("Cancel") } }
+        )
+    }
+}
+
+@Composable
+private fun Control(title: String, shortcut: AndroidShortcut, onShortcut: (AndroidShortcut) -> Unit, modifier: Modifier = Modifier) {
+    TextButton(
+        onClick = { onShortcut(shortcut) },
+        modifier = modifier.height(40.dp),
+        contentPadding = PaddingValues(horizontal = 6.dp)
+    ) {
+        Text(title, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }

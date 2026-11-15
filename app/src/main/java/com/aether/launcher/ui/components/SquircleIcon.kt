@@ -1,8 +1,5 @@
 package com.aether.launcher.ui.components
 
-import android.graphics.Bitmap
-import android.graphics.drawable.BitmapDrawable
-import android.graphics.drawable.Drawable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -20,14 +17,17 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -38,35 +38,30 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.graphics.drawable.toBitmap
+import com.aether.launcher.data.AppIconCache
+import com.aether.launcher.data.model.AppItem
+
+internal val LocalAppIcons = compositionLocalOf<AppIconCache?> { null }
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SquircleIcon(
-    label: String,
-    iconDrawable: Drawable?,
+    app: AppItem,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     onLongClick: (() -> Unit)? = null,
     size: Dp = 48.dp,
     showLabel: Boolean = true,
     isDarkTheme: Boolean = false,
-    isBlurEnabled: Boolean = true
+    labelColor: Color = Color.White
 ) {
-    val bitmap = remember(iconDrawable) {
-        iconDrawable?.let { drawable ->
-            if (drawable is BitmapDrawable && drawable.bitmap != null && !drawable.bitmap.isRecycled) {
-                drawable.bitmap
-            } else {
-                val targetSize = 192
-                val w = if (drawable.intrinsicWidth > 0) drawable.intrinsicWidth else targetSize
-                val h = if (drawable.intrinsicHeight > 0) drawable.intrinsicHeight else targetSize
-                drawable.toBitmap(width = w, height = h, config = Bitmap.Config.ARGB_8888)
-            }
-        }
+    val icons = LocalAppIcons.current
+    val pixelSize = with(LocalDensity.current) { 48.dp.roundToPx().coerceIn(48, 160) }
+    val bitmap by produceState(icons?.cached(app, pixelSize), app, pixelSize) {
+        value = icons?.load(app, pixelSize)
     }
 
-    val accessibleDescription = if (label.isNotEmpty()) "Launch $label" else "Application icon"
+    val accessibleDescription = "Launch ${app.label}"
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -86,13 +81,14 @@ fun SquircleIcon(
             contentAlignment = Alignment.Center,
             modifier = Modifier
                 .size(size)
-                .clip(RoundedCornerShape(14.dp))
+                .clip(RoundedCornerShape(percent = 27))
         ) {
-            if (bitmap != null) {
+            val image = remember(bitmap) { bitmap?.asImageBitmap() }
+            if (image != null) {
                 Image(
-                    bitmap = bitmap.asImageBitmap(),
+                    bitmap = image,
                     contentDescription = null,
-                    filterQuality = FilterQuality.High,
+                    filterQuality = FilterQuality.Low,
                     modifier = Modifier.size(size)
                 )
             } else {
@@ -113,15 +109,15 @@ fun SquircleIcon(
             }
         }
 
-        if (showLabel && label.isNotEmpty()) {
+        if (showLabel) {
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = label,
+                text = app.label,
                 style = MaterialTheme.typography.labelSmall.copy(
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium
                 ),
-                color = Color.White,
+                color = labelColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center

@@ -1,28 +1,25 @@
 package com.aether.launcher.ui.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.aether.launcher.data.model.AppItem
 import com.aether.launcher.data.model.FolderItem
-import com.aether.launcher.glass.GlassLevel
-import com.aether.launcher.glass.glassSurface
 
 @Composable
 fun SmartFolder2x2(
@@ -34,56 +31,32 @@ fun SmartFolder2x2(
     onOpenFolderModal: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val textColor = if (isDarkTheme) Color.White else Color(0xFF191C1E)
-    val folderApps = installedApps.filter { folder.appPackages.contains(it.packageName) }.take(4)
-
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(4.dp)
-            .glassSurface(
-                level = GlassLevel.BALANCED,
-                isDarkTheme = isDarkTheme,
-                blurEnabled = isBlurEnabled,
-                shape = RoundedCornerShape(26.dp)
-            )
-            .clickable(onClick = onOpenFolderModal)
-            .padding(10.dp)
+    val folderApps = folder.appPackages.take(4).mapNotNull { id -> installedApps.firstOrNull { it.packageName == id } }
+    Column(
+        modifier = modifier.fillMaxSize()
+            .clip(RoundedCornerShape(22.dp))
+            .background(if (isBlurEnabled) Color.Black.copy(alpha = 0.36f) else Color(0xFF252422))
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = folder.title,
-                style = MaterialTheme.typography.labelSmall,
-                color = textColor,
-                maxLines = 1
-            )
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                modifier = Modifier
-                    .fillMaxSize()
-                    .weight(1f),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalArrangement = Arrangement.SpaceEvenly
-            ) {
-                items(folderApps) { app ->
-                    SquircleIcon(
-                        label = "",
-                        iconDrawable = app.icon,
-                        onClick = { onAppClick(app) },
-                        showLabel = false,
-                        isDarkTheme = isDarkTheme,
-                        isBlurEnabled = isBlurEnabled,
-                        size = 38.dp
-                    )
+        folderApps.chunked(2).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                row.forEach { app ->
+                    SquircleIcon(app, onClick = { onAppClick(app) }, showLabel = false, isDarkTheme = isDarkTheme, size = 32.dp)
                 }
             }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth().heightIn(min = 36.dp)
+                .clip(RoundedCornerShape(12.dp)).clickable(onClick = onOpenFolderModal)
+                .semantics { contentDescription = "Open folder ${folder.title}" },
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(folder.title, color = Color.White, style = MaterialTheme.typography.labelMedium,
+                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+            Icon(Icons.Rounded.KeyboardArrowDown, null, Modifier.size(16.dp), tint = Color.White)
         }
     }
 }

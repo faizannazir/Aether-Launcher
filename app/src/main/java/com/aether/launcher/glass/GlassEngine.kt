@@ -9,6 +9,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
@@ -56,21 +57,16 @@ fun Modifier.glassSurface(
     isDarkTheme: Boolean = false,
     blurEnabled: Boolean = true,
     shape: Shape = RoundedCornerShape(28.dp),
-    borderWidth: Dp = 1.dp
+    borderWidth: Dp = 1.dp,
+    opacity: Float = 0.75f
 ): Modifier {
     val backgroundColor = if (isDarkTheme) level.darkColor else level.lightColor
     val fallbackColor = if (isDarkTheme) level.darkFallback else level.lightFallback
     val borderColor = if (isDarkTheme) level.specularBorderDark else level.specularBorderLight
-    val activeBg = if (blurEnabled) backgroundColor else fallbackColor
+    val activeBg = if (blurEnabled) lerp(backgroundColor, fallbackColor, opacity * 0.6f) else fallbackColor
+    val shadow = if (blurEnabled) Modifier.shadow(level.elevation, shape, clip = false) else Modifier
 
-    return this
-        .shadow(
-            elevation = level.elevation,
-            shape = shape,
-            clip = false,
-            ambientColor = Color.Black.copy(alpha = 0.20f),
-            spotColor = Color.Black.copy(alpha = 0.30f)
-        )
+    return this.then(shadow)
         .clip(shape)
         .background(activeBg, shape)
         .border(borderWidth, borderColor, shape)

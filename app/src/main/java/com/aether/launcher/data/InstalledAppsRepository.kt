@@ -1,12 +1,11 @@
 package com.aether.launcher.data
 
 import android.content.BroadcastReceiver
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
-import android.graphics.drawable.Drawable
-import androidx.collection.LruCache
 import com.aether.launcher.data.model.AppCategory
 import com.aether.launcher.data.model.AppItem
 import kotlinx.coroutines.CoroutineScope
@@ -18,6 +17,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class InstalledAppsRepository(private val context: Context) {
 
@@ -27,45 +28,34 @@ class InstalledAppsRepository(private val context: Context) {
     private var packageReceiver: BroadcastReceiver? = null
     private var packageScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    // Cache activity icons by component; a launcher package may expose more than one activity.
-    private val iconCache = LruCache<String, Drawable>(256)
+    private val iconRevisions = mutableMapOf<String, Int>()
+    private val loadMutex = Mutex()
 
-    suspend fun loadInstalledApps() = withContext(Dispatchers.IO) {
-        val pm = context.packageManager
-        val intent = Intent(Intent.ACTION_MAIN, null).apply {
-            addCategory(Intent.CATEGORY_LAUNCHER)
+    suspend fun loadInstalledApps(changedPackage: String? = null) = withContext(Dispatchers.IO) {
+        loadMutex.withLock {
+            if (changedPackage != null) {
+                iconRevisions[changedPackage] = (iconRevisions[changedPackage] ?: 0) + 1
+            }
+
+            val pm = context.packageManager
+            val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+            val entries = pm.queryIntentActivities(intent, PackageManager.MATCH_ALL)
+                .filter { it.activityInfo?.packageName != null && it.activityInfo.packageName != context.packageName }
+                .distinctBy { it.activityInfo.packageName }
+                .associateBy { it.activityInfo.packageName }
+            val apps = entries.map { (packageName, info) ->
+                val className = info.activityInfo.name
+                val category = when {
+                    listOf("youtube", "spotify", "music", "photos").any(packageName::contains) -> AppCategory.MEDIA
+                    listOf("message", "talk", "mail", "chat", "social").any(packageName::contains) -> AppCategory.SOCIAL
+                    listOf("doc", "keep", "note", "drive", "calendar").any(packageName::contains) -> AppCategory.PRODUCTIVITY
+                    else -> AppCategory.UTILITIES
+                }
+                AppItem(packageName, className, info.loadLabel(pm).toString(), category, iconRevisions[packageName] ?: 0)
+            }.sortedBy { it.label.lowercase() }
+
+            _installedApps.value = apps
         }
-
-        val resolveInfos = pm.queryIntentActivities(intent, PackageManager.MATCH_ALL)
-        val appList = resolveInfos.asSequence().distinctBy { info ->
-            info.activityInfo?.packageName
-        }.mapNotNull { resolveInfo ->
-            val activityInfo = resolveInfo.activityInfo ?: return@mapNotNull null
-            val packageName = activityInfo.packageName
-            val className = activityInfo.name
-            val label = resolveInfo.loadLabel(pm).toString()
-            val iconKey = "$packageName/$className"
-            val icon = iconCache.get(iconKey) ?: resolveInfo.loadIcon(pm).also {
-                iconCache.put(iconKey, it)
-            }
-
-            val category = when {
-                packageName.contains("youtube") || packageName.contains("spotify") || packageName.contains("music") || packageName.contains("photos") -> AppCategory.MEDIA
-                packageName.contains("message") || packageName.contains("talk") || packageName.contains("mail") || packageName.contains("chat") || packageName.contains("social") -> AppCategory.SOCIAL
-                packageName.contains("doc") || packageName.contains("keep") || packageName.contains("note") || packageName.contains("drive") || packageName.contains("calendar") -> AppCategory.PRODUCTIVITY
-                else -> AppCategory.UTILITIES
-            }
-
-            AppItem(
-                packageName = packageName,
-                className = className,
-                label = label,
-                icon = icon,
-                category = category
-            )
-        }.sortedBy { it.label.lowercase() }.toList()
-
-        _installedApps.value = appList
     }
 
     fun registerPackageReceiver() {
@@ -73,7 +63,7 @@ class InstalledAppsRepository(private val context: Context) {
         packageReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 packageScope.launch {
-                    loadInstalledApps()
+                    loadInstalledApps(intent?.data?.schemeSpecificPart)
                 }
             }
         }
@@ -106,14 +96,10 @@ class InstalledAppsRepository(private val context: Context) {
 
     fun launchApp(app: AppItem): Boolean {
         return try {
-            val intent = context.packageManager.getLaunchIntentForPackage(app.packageName)
-            if (intent != null) {
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                context.startActivity(intent)
-                true
-            } else {
-                false
-            }
+            val intent = Intent.makeMainActivity(ComponentName(app.packageName, app.className))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+            context.startActivity(intent)
+            true
         } catch (e: Exception) {
             e.printStackTrace()
             false

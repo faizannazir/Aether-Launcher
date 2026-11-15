@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
+import com.aether.launcher.data.AppIconCache
 import com.aether.launcher.data.AppSearchEngine
 import com.aether.launcher.data.HomePreferences
 import com.aether.launcher.data.InstalledAppsRepository
@@ -12,11 +13,12 @@ import com.aether.launcher.data.model.AppCategory
 import com.aether.launcher.data.model.AppItem
 import com.aether.launcher.data.model.FolderItem
 import com.aether.launcher.data.model.HomeLayoutItem
+import com.aether.launcher.data.model.LauncherOptions
 import com.aether.launcher.data.model.PageData
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -25,6 +27,7 @@ class LauncherViewModel(
     private val savedStateHandle: SavedStateHandle
 ) : AndroidViewModel(application) {
 
+    internal val appIcons = AppIconCache(application)
     private val repository = InstalledAppsRepository(application)
     private val preferences = HomePreferences(application)
     private val layoutPersistence = LayoutPersistence(application)
@@ -33,70 +36,153 @@ class LauncherViewModel(
     private val _uiState = MutableStateFlow(LauncherState())
     val uiState: StateFlow<LauncherState> = _uiState.asStateFlow()
 
+    private var hasRestoredLayout = false
+    private var dockPackages: List<String>? = null
+
     init {
         viewModelScope.launch {
+            val savedPages = layoutPersistence.pagesFlow.first()
+            hasRestoredLayout = savedPages.isNotEmpty()
+            _uiState.update { current ->
+                current.copy(
+                    pages = savedPages.ifEmpty { current.pages },
+                    isLayoutReady = true
+                )
+            }
+            repository.registerPackageReceiver()
             repository.loadInstalledApps()
         }
 
         viewModelScope.launch {
-            repository.installedApps.collectLatest { apps ->
+            repository.installedApps.collect { apps ->
                 _uiState.update { current ->
-                    val defaultDock = apps.take(4)
-                    val defaultPageItems = apps.take(12).mapIndexed { index, app ->
-                        HomeLayoutItem.App(
-                            id = "app_${app.packageName}",
-                            position = index,
-                            packageName = app.packageName,
-                            className = app.className
-                        )
-                    }
-
+                    val seedHome = current.installedApps.isEmpty() && apps.isNotEmpty() &&
+                        current.pages == listOf(PageData(0)) &&
+                        !hasRestoredLayout
                     current.copy(
                         installedApps = apps,
-                        dockApps = if (current.dockApps.isEmpty()) defaultDock else current.dockApps,
-                        pages = if (current.pages.firstOrNull()?.items.isNullOrEmpty()) {
-                            listOf(PageData(0, defaultPageItems))
-                        } else current.pages
+                        dockApps = resolveDock(apps),
+                        pages = if (seedHome) starterPages(apps) else current.pages,
+                        searchResults = searchEngine.search(current.searchQuery, apps)
                     )
                 }
+                if (apps.isNotEmpty()) hasRestoredLayout = true
             }
         }
 
         viewModelScope.launch {
-            layoutPersistence.pagesFlow.collectLatest { savedPages ->
-                if (savedPages.isNotEmpty()) {
-                    _uiState.update { it.copy(pages = savedPages) }
-                }
-            }
+            preferences.options.collect { options -> _uiState.update { it.copy(options = options) } }
         }
-
         viewModelScope.launch {
-            preferences.darkTheme.collectLatest { dark ->
-                _uiState.update { it.copy(isDarkTheme = dark) }
-            }
-        }
-
-        viewModelScope.launch {
-            preferences.blurEnabled.collectLatest { blur ->
-                _uiState.update { it.copy(isBlurEnabled = blur) }
-            }
-        }
-
-        viewModelScope.launch {
-            preferences.blurIntensity.collectLatest { intensity ->
-                _uiState.update { it.copy(blurIntensity = intensity) }
-            }
-        }
-
-        viewModelScope.launch {
-            preferences.gridColumns.collectLatest { grid ->
-                _uiState.update { it.copy(gridColumns = grid) }
+            preferences.dockPackages.collect { packages ->
+                dockPackages = packages
+                _uiState.update { it.copy(dockApps = resolveDock(it.installedApps)) }
             }
         }
     }
 
+    private fun homeShortcut(position: Int, app: AppItem) = HomeLayoutItem.App(
+        id = "app_${app.packageName}",
+        position = position,
+        packageName = app.packageName,
+        className = app.className
+    )
+
+    private fun resolveDock(apps: List<AppItem>): List<AppItem> {
+        val packages = dockPackages ?: return chooseApps(apps, dockDefaults, 4)
+        val byPackage = apps.associateBy { it.packageName }
+        return packages.mapNotNull(byPackage::get)
+    }
+
+    private fun starterPages(apps: List<AppItem>): List<PageData> {
+        val dock = resolveDock(apps).mapTo(mutableSetOf()) { it.packageName }
+        val available = apps.filterNot { it.packageName in dock }
+        val byPackage = available.associateBy { it.packageName }
+        val tools = toolDefaults.mapNotNull(byPackage::get)
+        val toolPackages = tools.mapTo(mutableSetOf()) { it.packageName }
+        val mainApps = homeDefaults.mapNotNull(byPackage::get).filterNot { it.packageName in toolPackages }.take(8)
+        val homeItems = buildList {
+            add(HomeLayoutItem.ServiceWidget("android_controls_0", 0, "Android controls", ""))
+            if (tools.isNotEmpty()) {
+                add(HomeLayoutItem.Folder("folder_tools", 1, "Tools", tools.map { it.packageName }))
+            }
+            addAll(mainApps.mapIndexed { index, app -> homeShortcut(index + 2, app) })
+        }
+        val used = mainApps.mapTo(toolPackages) { it.packageName }
+        val secondPage = chooseApps(available.filterNot { it.packageName in used }, secondPageDefaults, 12)
+        return buildList {
+            add(PageData(0, homeItems))
+            if (secondPage.isNotEmpty()) add(PageData(1, secondPage.mapIndexed(::homeShortcut)))
+        }
+    }
+
+    private fun chooseApps(apps: List<AppItem>, preferred: List<String>, count: Int): List<AppItem> {
+        val byPackage = apps.associateBy { it.packageName }
+        return (preferred.mapNotNull(byPackage::get) + apps).distinctBy { it.packageName }.take(count)
+    }
+
+    private companion object {
+        val dockDefaults = listOf(
+            "com.google.android.dialer", "com.android.dialer", "com.google.android.apps.messaging",
+            "com.android.messaging", "com.android.chrome", "com.google.android.GoogleCamera", "com.android.camera2"
+        )
+        val toolDefaults = listOf(
+            "com.google.android.calendar", "com.google.android.deskclock",
+            "com.google.android.calculator", "com.google.android.apps.nbu.files"
+        )
+        val homeDefaults = listOf(
+            "com.google.android.apps.photos", "com.google.android.apps.maps", "com.google.android.gm",
+            "com.android.vending", "com.google.android.youtube", "com.google.android.contacts",
+            "com.google.android.keep", "com.google.android.apps.drive"
+        )
+        val secondPageDefaults = listOf(
+            "com.whatsapp", "com.google.android.apps.youtube.music", "com.spotify.music",
+            "com.google.android.apps.docs", "com.google.android.apps.walletnfcrel", "com.android.settings"
+        )
+    }
+
+    fun applyStarterLayout(): List<Int> {
+        val current = _uiState.value
+        if (current.installedApps.isEmpty()) return emptyList()
+        dockPackages = null
+        val dock = resolveDock(current.installedApps)
+        _uiState.value = current.copy(
+            pages = starterPages(current.installedApps),
+            activePageIndex = 0,
+            dockApps = dock,
+            activeFolder = null
+        )
+        val packages = dock.map { it.packageName }
+        dockPackages = packages
+        viewModelScope.launch { preferences.setDockPackages(packages) }
+        saveCurrentLayout()
+        return current.pages.flatMap { it.items }.filterIsInstance<HomeLayoutItem.Widget>().map { it.appWidgetId }
+    }
+
+    fun toggleDockApp(app: AppItem) {
+        val packages = dockPackages ?: _uiState.value.dockApps.map { it.packageName }
+        val updated = if (app.packageName in packages) {
+            packages - app.packageName
+        } else {
+            (packages + app.packageName).takeLast(4)
+        }
+        dockPackages = updated
+        _uiState.update { it.copy(dockApps = resolveDock(it.installedApps)) }
+        viewModelScope.launch { preferences.setDockPackages(updated) }
+    }
+
     fun openScreen(screen: LauncherScreen) {
-        _uiState.update { it.copy(currentScreen = screen) }
+        _uiState.update {
+            it.copy(
+                currentScreen = screen,
+                activeFolder = null,
+                isCustomizationSheetOpen = false,
+                isWidgetSheetOpen = false,
+                searchQuery = "",
+                searchResults = emptyList(),
+                selectedCategory = AppCategory.ALL
+            )
+        }
     }
 
     fun setActivePageIndex(index: Int) {
@@ -105,7 +191,8 @@ class LauncherViewModel(
         }
     }
 
-    fun addAppToHomePage(app: AppItem) {
+    fun addAppToHomePage(app: AppItem): Boolean {
+        val previous = _uiState.value.pages
         _uiState.update { current ->
             val pages = current.pages.toMutableList()
             val pageIndex = current.activePageIndex.coerceIn(0, pages.lastIndex)
@@ -115,7 +202,9 @@ class LauncherViewModel(
             }
 
             val occupied = page.items.mapTo(mutableSetOf()) { it.position }
-            val freePosition = (0 until 20).firstOrNull { it !in occupied }
+            val capacity = current.options.grid.capacity
+            val freePosition = (0 until capacity).firstOrNull { it !in occupied }
+                ?.takeIf { page.items.size < capacity }
             if (freePosition != null) {
                 pages[pageIndex] = page.copy(
                     items = page.items + HomeLayoutItem.App(
@@ -142,7 +231,9 @@ class LauncherViewModel(
                 current.copy(pages = pages, activePageIndex = pages.lastIndex)
             }
         }
+        if (_uiState.value.pages == previous) return false
         saveCurrentLayout()
+        return true
     }
 
     fun addHomePage() {
@@ -153,6 +244,50 @@ class LauncherViewModel(
                 activePageIndex = current.pages.size
             )
         }
+        saveCurrentLayout()
+    }
+
+    fun removeEmptyHomePage() {
+        val current = _uiState.value
+        val index = current.activePageIndex
+        if (current.pages.size <= 1 || current.pages.getOrNull(index)?.items?.isNotEmpty() != false) return
+        val pages = current.pages.toMutableList().apply { removeAt(index) }
+        _uiState.value = current.copy(pages = pages, activePageIndex = index.coerceAtMost(pages.lastIndex))
+        saveCurrentLayout()
+    }
+
+    fun createFolder(first: HomeLayoutItem.App, second: HomeLayoutItem.App) {
+        val current = _uiState.value
+        val page = current.pages[current.activePageIndex]
+        if (first == second || first !in page.items || second !in page.items) return
+        val folder = HomeLayoutItem.Folder(
+            id = "folder_${java.util.UUID.randomUUID()}",
+            position = minOf(first.position, second.position),
+            title = "New folder",
+            appPackages = listOf(first.packageName, second.packageName)
+        )
+        val pages = current.pages.toMutableList()
+        pages[current.activePageIndex] = page.copy(items = page.items - first - second + folder)
+        _uiState.value = current.copy(pages = pages)
+        saveCurrentLayout()
+    }
+
+    fun ungroupFolder(folderId: String) {
+        val current = _uiState.value
+        val page = current.pages[current.activePageIndex]
+        val folder = page.items.filterIsInstance<HomeLayoutItem.Folder>().firstOrNull { it.id == folderId } ?: return
+        val apps = current.installedApps.associateBy { it.packageName }
+        val items = page.items.filterNot { it.id == folderId }.toMutableList()
+        val existing = items.filterIsInstance<HomeLayoutItem.App>().mapTo(mutableSetOf()) { it.packageName }
+        val occupied = items.mapTo(mutableSetOf()) { it.position }
+        folder.appPackages.distinct().filterNot(existing::contains).forEach { packageName ->
+            val app = apps[packageName] ?: return@forEach
+            val position = generateSequence(folder.position) { it + 1 }.first { occupied.add(it) }
+            items.add(homeShortcut(position, app))
+        }
+        val pages = current.pages.toMutableList()
+        pages[current.activePageIndex] = page.copy(items = items)
+        _uiState.value = current.copy(pages = pages, activeFolder = null)
         saveCurrentLayout()
     }
 
@@ -191,18 +326,20 @@ class LauncherViewModel(
         saveCurrentLayout()
     }
 
-    fun toggleServiceWidgetFocus(widgetId: String) {
-        _uiState.update { current ->
-            val updatedPages = current.pages.map { page ->
-                val updatedItems = page.items.map { item ->
-                    if (item is HomeLayoutItem.ServiceWidget && item.id == widgetId) {
-                        item.copy(isFocusActive = !item.isFocusActive)
-                    } else item
-                }
-                page.copy(items = updatedItems)
-            }
-            current.copy(pages = updatedPages)
-        }
+    fun addAndroidControls() {
+        val current = _uiState.value
+        val page = current.pages[current.activePageIndex]
+        if (page.items.any { it is HomeLayoutItem.ServiceWidget }) return
+        val position = (page.items.maxOfOrNull { it.position } ?: -1) + 1
+        val item = HomeLayoutItem.ServiceWidget(
+            id = "android_controls_${page.pageIndex}",
+            position = position,
+            title = "Android controls",
+            subtitle = ""
+        )
+        val pages = current.pages.toMutableList()
+        pages[current.activePageIndex] = page.copy(items = page.items + item)
+        _uiState.value = current.copy(pages = pages)
         saveCurrentLayout()
     }
 
@@ -272,7 +409,9 @@ class LauncherViewModel(
         _uiState.update { current ->
             val page = current.pages.getOrNull(pageIndex) ?: PageData(pageIndex)
             val newItems = page.items.toMutableList()
-            newItems.add(widget)
+            val occupied = newItems.mapTo(mutableSetOf()) { it.position }
+            val position = generateSequence(0) { it + 1 }.first { it !in occupied }
+            newItems.add(widget.copy(position = position))
             val updatedPages = current.pages.toMutableList()
             if (pageIndex < updatedPages.size) {
                 updatedPages[pageIndex] = page.copy(items = newItems)
@@ -303,34 +442,16 @@ class LauncherViewModel(
         _uiState.update { it.copy(isWidgetSheetOpen = open) }
     }
 
-    fun setDarkTheme(enabled: Boolean) {
-        viewModelScope.launch { preferences.setDarkTheme(enabled) }
+    fun updateOptions(transform: (LauncherOptions) -> LauncherOptions) {
+        viewModelScope.launch { preferences.updateOptions(transform) }
     }
 
-    fun setBlurEnabled(enabled: Boolean) {
-        viewModelScope.launch { preferences.setBlurEnabled(enabled) }
-    }
-
-    fun setBlurIntensity(intensity: Float) {
-        viewModelScope.launch { preferences.setBlurIntensity(intensity) }
-    }
-
-    fun setGridColumns(grid: String) {
-        viewModelScope.launch { preferences.setGridColumns(grid) }
-    }
-
-
-    fun registerPackageReceiver() {
-        repository.registerPackageReceiver()
-    }
-
-    fun unregisterPackageReceiver() {
+    override fun onCleared() {
         repository.unregisterPackageReceiver()
+        super.onCleared()
     }
 
-    fun launchApp(app: AppItem) {
-        repository.launchApp(app)
-    }
+    fun launchApp(app: AppItem): Boolean = repository.launchApp(app)
 
     private fun saveCurrentLayout() {
         viewModelScope.launch {

@@ -4,6 +4,7 @@ import com.aether.launcher.data.model.AppCategory
 import com.aether.launcher.data.model.AppItem
 import com.aether.launcher.data.model.FolderItem
 import com.aether.launcher.data.model.HomeLayoutItem
+import com.aether.launcher.data.model.LauncherOptions
 import com.aether.launcher.data.model.PageData
 
 enum class LauncherScreen {
@@ -37,7 +38,8 @@ data class LauncherState(
     val searchResults: List<AppItem> = emptyList(),
     val selectedCategory: AppCategory = AppCategory.ALL,
     val isDarkTheme: Boolean = false,
-    val isBlurEnabled: Boolean = true,
-    val blurIntensity: Float = 0.75f,
-    val gridColumns: String = "4x5"
-)
+    val options: LauncherOptions = LauncherOptions(),
+    val isLayoutReady: Boolean = false
+) {
+    val isBlurEnabled: Boolean get() = options.glass
+}

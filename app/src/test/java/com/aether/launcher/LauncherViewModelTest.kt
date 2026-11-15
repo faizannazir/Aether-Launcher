@@ -1,5 +1,7 @@
 package com.aether.launcher
 
+import android.app.Application
+import android.content.Intent
 import androidx.lifecycle.SavedStateHandle
 import androidx.test.core.app.ApplicationProvider
 import com.aether.launcher.data.model.AppItem
@@ -18,10 +20,12 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import java.time.LocalDateTime
 import java.util.Locale
 
@@ -107,6 +111,43 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `grouping shortcuts replaces both with one large folder`() {
+        val first = AppItem("com.example.one", "Activity", "One")
+        val second = AppItem("com.example.two", "Activity", "Two")
+        viewModel.addAppToHomePage(first)
+        viewModel.addAppToHomePage(second)
+        val shortcuts = viewModel.uiState.value.pages.single().items.filterIsInstance<HomeLayoutItem.App>()
+
+        viewModel.createFolder(shortcuts[0], shortcuts[1])
+
+        val folder = viewModel.uiState.value.pages.single().items.single() as HomeLayoutItem.Folder
+        assertEquals(listOf(first.packageName, second.packageName), folder.appPackages)
+        assertEquals(0, folder.position)
+    }
+
+    @Test
+    fun `starter layout preserves existing pages while app discovery is empty`() {
+        viewModel.addHomePage()
+        val pages = viewModel.uiState.value.pages
+
+        val removedWidgets = viewModel.applyStarterLayout()
+
+        assertEquals(pages, viewModel.uiState.value.pages)
+        assertEquals(emptyList<Int>(), removedWidgets)
+    }
+
+    @Test
+    fun `an empty page can be removed without removing the primary page`() {
+        viewModel.addHomePage()
+
+        viewModel.removeEmptyHomePage()
+        viewModel.removeEmptyHomePage()
+
+        assertEquals(1, viewModel.uiState.value.pages.size)
+        assertEquals(0, viewModel.uiState.value.activePageIndex)
+    }
+
+    @Test
     fun `active page selection ignores invalid indexes`() {
         viewModel.addHomePage()
         viewModel.setActivePageIndex(0)
@@ -115,6 +156,19 @@ class LauncherViewModelTest {
 
         viewModel.setActivePageIndex(99)
         assertEquals(0, viewModel.uiState.value.activePageIndex)
+    }
+
+    @Test
+    fun `launching a shortcut starts its exact activity in a task`() {
+        val app = AppItem("com.example", "com.example.Activity", "Example")
+        val application = ApplicationProvider.getApplicationContext<Application>()
+
+        assertTrue(viewModel.launchApp(app))
+
+        val launched = shadowOf(application).nextStartedActivity
+        assertEquals(app.packageName, launched.component?.packageName)
+        assertEquals(app.className, launched.component?.className)
+        assertTrue(launched.flags and Intent.FLAG_ACTIVITY_NEW_TASK != 0)
     }
 
     @Test
