@@ -9,7 +9,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
@@ -60,14 +61,21 @@ fun Modifier.glassSurface(
     borderWidth: Dp = 1.dp,
     opacity: Float = 0.75f
 ): Modifier {
-    val backgroundColor = if (isDarkTheme) level.darkColor else level.lightColor
-    val fallbackColor = if (isDarkTheme) level.darkFallback else level.lightFallback
-    val borderColor = if (isDarkTheme) level.specularBorderDark else level.specularBorderLight
-    val activeBg = if (blurEnabled) lerp(backgroundColor, fallbackColor, opacity * 0.6f) else fallbackColor
+    val surface = MaterialTheme.colorScheme.surface
+    val tint = MaterialTheme.colorScheme.primary
+    val alpha = (if (isDarkTheme) .48f else .34f) + opacity.coerceIn(0f, 1f) * .32f
+    val backgroundColor = surface.copy(alpha = alpha)
+    val activeBg = if (blurEnabled) backgroundColor else surface
+    val borderColor = Color.White.copy(alpha = if (isDarkTheme) .20f else .48f)
     val shadow = if (blurEnabled) Modifier.shadow(level.elevation, shape, clip = false) else Modifier
+    val sheen = if (blurEnabled) Modifier.background(
+        Brush.verticalGradient(listOf(Color.White.copy(alpha = .09f), Color.Transparent, tint.copy(alpha = .025f))),
+        shape
+    ) else Modifier
 
     return this.then(shadow)
         .clip(shape)
         .background(activeBg, shape)
+        .then(sheen)
         .border(borderWidth, borderColor, shape)
 }
