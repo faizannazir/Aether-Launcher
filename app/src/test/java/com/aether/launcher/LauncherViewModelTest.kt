@@ -126,6 +126,66 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `dropping a drawer app inserts it at the selected Home position`() {
+        val first = AppItem("first", "Activity", "First")
+        val second = AppItem("second", "Activity", "Second")
+        val inserted = AppItem("inserted", "Activity", "Inserted")
+        viewModel.addAppToHomePage(first)
+        viewModel.addAppToHomePage(second)
+
+        assertTrue(viewModel.placeAppOnHome(inserted, targetPageId = 0, targetIndex = 1))
+        assertTrue(viewModel.placeAppOnHome(inserted, targetPageId = 0, targetIndex = 1))
+
+        val apps = viewModel.uiState.value.pages.single().items.filterIsInstance<HomeLayoutItem.App>()
+        assertEquals(listOf("first", "inserted", "second"), apps.map { it.packageName })
+        assertEquals(listOf(0, 1, 2), apps.map { it.position })
+    }
+
+    @Test
+    fun `dragging an existing shortcut across pages moves it once`() {
+        val app = AppItem("moving", "Activity", "Moving")
+        viewModel.addAppToHomePage(app)
+        val source = viewModel.uiState.value.pages.single().items.single()
+        viewModel.addHomePage()
+
+        assertTrue(viewModel.placeAppOnHome(app, 1, 0, source.id, sourcePageId = 0))
+
+        val pages = viewModel.uiState.value.pages
+        assertTrue(pages.first().items.isEmpty())
+        assertEquals("moving", (pages.last().items.single() as HomeLayoutItem.App).packageName)
+        assertEquals(1, viewModel.uiState.value.activePageIndex)
+    }
+
+    @Test
+    fun `dropping on an app groups shortcuts and supports adding to that folder`() {
+        val first = AppItem("first", "Activity", "First")
+        val second = AppItem("second", "Activity", "Second")
+        val third = AppItem("third", "Activity", "Third")
+        viewModel.addAppToHomePage(first)
+        viewModel.addAppToHomePage(second)
+        val shortcuts = viewModel.uiState.value.pages.single().items
+
+        assertTrue(viewModel.groupAppOnHome(first, 0, shortcuts[1].id, shortcuts[0].id))
+        val folder = viewModel.uiState.value.pages.single().items.single() as HomeLayoutItem.Folder
+        assertTrue(viewModel.groupAppOnHome(third, 0, folder.id))
+        assertTrue(viewModel.groupAppOnHome(third, 0, folder.id))
+
+        val updated = viewModel.uiState.value.pages.single().items.single() as HomeLayoutItem.Folder
+        assertEquals(listOf("second", "first", "third"), updated.appPackages)
+    }
+
+    @Test
+    fun `a drop on a removed page preserves the source shortcut`() {
+        val app = AppItem("moving", "Activity", "Moving")
+        viewModel.addAppToHomePage(app)
+        val before = viewModel.uiState.value.pages
+        val source = before.single().items.single()
+
+        assertEquals(false, viewModel.placeAppOnHome(app, 99, 0, source.id, sourcePageId = 0))
+        assertEquals(before, viewModel.uiState.value.pages)
+    }
+
+    @Test
     fun `starter layout preserves existing pages while app discovery is empty`() {
         viewModel.addHomePage()
         val pages = viewModel.uiState.value.pages

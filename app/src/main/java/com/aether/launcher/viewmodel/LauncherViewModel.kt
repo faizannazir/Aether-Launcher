@@ -159,16 +159,101 @@ class LauncherViewModel(
         return current.pages.flatMap { it.items }.filterIsInstance<HomeLayoutItem.Widget>().map { it.appWidgetId }
     }
 
-    fun toggleDockApp(app: AppItem) {
-        val packages = dockPackages ?: _uiState.value.dockApps.map { it.packageName }
-        val updated = if (app.packageName in packages) {
-            packages - app.packageName
-        } else {
-            (packages + app.packageName).takeLast(4)
+    fun placeAppOnHome(
+        app: AppItem,
+        targetPageId: Int,
+        targetIndex: Int,
+        sourceItemId: String? = null,
+        sourcePageId: Int = targetPageId,
+        fromDock: Boolean = false
+    ): Boolean {
+        val current = _uiState.value
+        val destination = current.pages.indexOfFirst { it.pageIndex == targetPageId }
+        if (destination < 0) return false
+        val pages = current.pages.toMutableList()
+        val sourceIndex = pages.indexOfFirst { it.pageIndex == sourcePageId }
+        val oldItems = pages[destination].items.sortedBy { it.position }
+        val existing = oldItems.filterIsInstance<HomeLayoutItem.App>().firstOrNull { it.packageName == app.packageName }
+        val insertion = targetIndex.coerceIn(0, oldItems.size)
+        val precedingRemoved = oldItems.take(insertion).count {
+            it.id == sourceItemId || it.id == existing?.id
         }
-        dockPackages = updated
+        if (sourceItemId != null && sourceIndex >= 0) {
+            pages[sourceIndex] = pages[sourceIndex].copy(items = pages[sourceIndex].items.filterNot { it.id == sourceItemId })
+        }
+        val items = pages[destination].items.sortedBy { it.position }
+            .filterNot { it is HomeLayoutItem.App && it.packageName == app.packageName }.toMutableList()
+        items.add((insertion - precedingRemoved).coerceIn(0, items.size), homeShortcut(0, app))
+        pages[destination] = pages[destination].copy(items = items.mapIndexed { index, item ->
+            when (item) {
+                is HomeLayoutItem.App -> item.copy(position = index)
+                is HomeLayoutItem.Folder -> item.copy(position = index)
+                is HomeLayoutItem.ServiceWidget -> item.copy(position = index)
+                is HomeLayoutItem.Widget -> item.copy(position = index)
+            }
+        })
+        _uiState.value = current.copy(pages = pages, activePageIndex = destination)
+        if (fromDock) removeDockApp(app)
+        saveCurrentLayout()
+        return true
+    }
+
+    fun groupAppOnHome(
+        app: AppItem,
+        pageId: Int,
+        targetId: String,
+        sourceItemId: String? = null,
+        sourcePageId: Int = pageId,
+        fromDock: Boolean = false
+    ): Boolean {
+        val current = _uiState.value
+        val pageIndex = current.pages.indexOfFirst { it.pageIndex == pageId }
+        val page = current.pages.getOrNull(pageIndex) ?: return false
+        val target = page.items.firstOrNull { it.id == targetId } ?: return false
+        if (targetId == sourceItemId) return false
+        val folder = when (target) {
+            is HomeLayoutItem.App -> {
+                if (target.packageName == app.packageName) return false
+                HomeLayoutItem.Folder(
+                    "folder_${java.util.UUID.randomUUID()}",
+                    target.position, "New folder", listOf(target.packageName, app.packageName)
+                )
+            }
+            is HomeLayoutItem.Folder -> target.copy(appPackages = (target.appPackages + app.packageName).distinct())
+            else -> return false
+        }
+        val pages = current.pages.map { sourcePage ->
+            val items = sourcePage.items.filterNot {
+                (sourcePage.pageIndex == sourcePageId && it.id == sourceItemId) ||
+                    (sourcePage.pageIndex == pageId && it is HomeLayoutItem.App && it.packageName == app.packageName)
+            }.map { if (sourcePage.pageIndex == pageId && it.id == targetId) folder else it }
+            sourcePage.copy(items = items)
+        }
+        _uiState.value = current.copy(pages = pages, activePageIndex = pageIndex)
+        if (fromDock) removeDockApp(app)
+        saveCurrentLayout()
+        return true
+    }
+
+    fun addDockApp(app: AppItem) {
+        val packages = dockPackages ?: _uiState.value.dockApps.map { it.packageName }
+        setDockPackages((packages - app.packageName + app.packageName).takeLast(4))
+    }
+
+    fun removeDockApp(app: AppItem) {
+        val packages = dockPackages ?: _uiState.value.dockApps.map { it.packageName }
+        setDockPackages(packages - app.packageName)
+    }
+
+    private fun setDockPackages(packages: List<String>) {
+        dockPackages = packages
         _uiState.update { it.copy(dockApps = resolveDock(it.installedApps)) }
-        viewModelScope.launch { preferences.setDockPackages(updated) }
+        viewModelScope.launch { preferences.setDockPackages(packages) }
+    }
+
+    fun toggleDockApp(app: AppItem) {
+        if (_uiState.value.dockApps.any { it.packageName == app.packageName }) removeDockApp(app)
+        else addDockApp(app)
     }
 
     fun openScreen(screen: LauncherScreen) {
