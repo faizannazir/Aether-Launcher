@@ -10,7 +10,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.unit.Dp
 import com.aether.launcher.ui.screens.AppActions
-import com.aether.launcher.ui.screens.AppMenu
+import com.aether.launcher.ui.screens.AppDropTarget
+import com.aether.launcher.ui.screens.LauncherAppDrag
+import com.aether.launcher.ui.screens.appDropTarget
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -22,6 +24,7 @@ import com.aether.launcher.data.model.AppItem
 internal fun FloatingDock(
     dockApps: List<AppItem>,
     actions: AppActions,
+    drag: LauncherAppDrag,
     isDarkTheme: Boolean = false,
     isBlurEnabled: Boolean = true,
     glassOpacity: Float,
@@ -32,25 +35,21 @@ internal fun FloatingDock(
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
-            .fillMaxWidth()
+            .fillMaxWidth().appDropTarget(drag, AppDropTarget.Dock)
             .padding(horizontal = 20.dp)
             .clip(RoundedCornerShape(24.dp))
             .background(if (isBlurEnabled) Color.Black.copy(alpha = 0.20f + 0.27f * glassOpacity) else Color(0xFF252422))
             .padding(vertical = 8.dp, horizontal = 8.dp)
     ) {
         dockApps.take(4).forEach { app ->
-            var menuOpen by remember(app.packageName) { mutableStateOf(false) }
-            Box {
-                SquircleIcon(
-                    app = app,
-                    onClick = { actions.launch(app) },
-                    onLongClick = { menuOpen = true },
-                    showLabel = false,
-                    isDarkTheme = isDarkTheme,
-                    size = iconSize
-                )
-                AppMenu(menuOpen, { menuOpen = false }, app, actions, inDock = true, dockOnly = true)
-            }
+            SquircleIcon(
+                app = app,
+                onClick = { actions.launch(app) },
+                onLongClick = { actions.startDrag(app, null, true) },
+                showLabel = false,
+                isDarkTheme = isDarkTheme,
+                size = iconSize
+            )
         }
 
     }

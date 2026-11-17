@@ -1,5 +1,11 @@
 package com.aether.launcher
 
+import android.Manifest
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.ComponentName
 import android.app.Activity
 import android.app.role.RoleManager
 import android.appwidget.AppWidgetManager
@@ -22,16 +28,18 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.AlertDialog
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -41,9 +49,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.core.app.NotificationManagerCompat
+import com.aether.launcher.notification.CameraCapsuleService
+import com.aether.launcher.ui.screens.CameraCapsulePreview
 import com.aether.launcher.data.model.AppItem
 import com.aether.launcher.data.model.GestureAction
 import com.aether.launcher.data.model.HomeBackground
@@ -54,6 +67,9 @@ import com.aether.launcher.data.widget.WidgetHostManager
 import com.aether.launcher.ui.components.LocalAppIcons
 import com.aether.launcher.ui.screens.AndroidShortcut
 import com.aether.launcher.ui.screens.AppActions
+import com.aether.launcher.ui.screens.AppDragSource
+import com.aether.launcher.ui.screens.AppDropTarget
+import com.aether.launcher.ui.screens.rememberAppDrag
 import com.aether.launcher.ui.screens.AppDrawerScreen
 import com.aether.launcher.ui.screens.CustomizationSheet
 import com.aether.launcher.ui.screens.FolderModal
@@ -74,6 +90,13 @@ class MainActivity : ComponentActivity() {
     private var pendingWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
     private var pendingWidgetPage = 0
     private var isDefaultHome by mutableStateOf(false)
+    private var overlayAllowed by mutableStateOf(false)
+    private var notificationAccess by mutableStateOf(false)
+    private var cameraSetup by mutableStateOf(false)
+
+    private val notificationPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
+        if (it) postCapsuleTest()
+    }
 
     private val homeRoleLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         isDefaultHome = isDefaultHomeApp()
@@ -101,12 +124,18 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT)
         )
         super.onCreate(savedInstanceState)
+        if (Build.VERSION.SDK_INT >= 28) {
+            window.attributes = window.attributes.apply {
+                layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            }
+        }
         widgetHostManager = WidgetHostManager(applicationContext)
         pendingWidgetId = savedInstanceState?.getInt("widgetId") ?: AppWidgetManager.INVALID_APPWIDGET_ID
         pendingWidgetPage = savedInstanceState?.getInt("widgetPage") ?: 0
 
         setContent {
             val rawState by viewModel.uiState.collectAsState()
+            val overlayAttached by CameraCapsuleService.attached.collectAsState()
             val darkTheme = when (rawState.options.theme) {
                 LauncherTheme.SYSTEM -> isSystemInDarkTheme()
                 LauncherTheme.LIGHT -> false
@@ -115,8 +144,10 @@ class MainActivity : ComponentActivity() {
             val state = rawState.copy(isDarkTheme = darkTheme)
             val screen = state.currentScreen
             val onHome = screen == LauncherScreen.HOME
-            val showWallpaper = onHome && state.options.background == HomeBackground.WALLPAPER
+            val showWallpaper = state.options.background == HomeBackground.WALLPAPER &&
+                (onHome || state.options.glass && screen == LauncherScreen.APP_DRAWER)
             val activePage = state.pages[state.activePageIndex]
+            var editAnchor by remember { mutableStateOf<Offset?>(null) }
             var widgetSourcePackage by rememberSaveable { mutableStateOf<String?>(null) }
             val providers by produceState(emptyList<AppWidgetProviderInfo>(), state.installedApps, state.isWidgetSheetOpen) {
                 if (state.installedApps.isNotEmpty() || state.isWidgetSheetOpen) {
@@ -124,7 +155,6 @@ class MainActivity : ComponentActivity() {
                 }
             }
             val widgetPackages = remember(providers) { providers.mapTo(mutableSetOf()) { it.provider.packageName } }
-            var groupingApp by remember(activePage.pageIndex, screen) { mutableStateOf<HomeLayoutItem.App?>(null) }
 
             LaunchedEffect(showWallpaper, onHome, darkTheme) {
                 if (showWallpaper) {
@@ -143,18 +173,62 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
+            val appDrag = rememberAppDrag(
+                icons = viewModel.appIcons,
+                onStart = { viewModel.openScreen(LauncherScreen.HOME) },
+                onDrop = { source, target ->
+                    when (target) {
+                        is AppDropTarget.Home -> viewModel.placeAppOnHome(
+                            source.app, target.pageId, target.index,
+                            source.homeItem?.id, source.pageId, source.fromDock
+                        )
+                        is AppDropTarget.Group -> viewModel.groupAppOnHome(
+                            source.app, target.pageId, target.itemId,
+                            source.homeItem?.id, source.pageId, source.fromDock
+                        )
+                        AppDropTarget.Dock -> {
+                            viewModel.addDockApp(source.app)
+                            source.homeItem?.let { item ->
+                                val page = viewModel.uiState.value.pages.indexOfFirst { it.pageIndex == source.pageId }
+                                if (page >= 0) viewModel.removeLayoutItem(item, page)
+                            }
+                        }
+                        AppDropTarget.Remove -> {
+                            if (source.fromDock) viewModel.removeDockApp(source.app)
+                            source.homeItem?.let { item ->
+                                val page = viewModel.uiState.value.pages.indexOfFirst { it.pageIndex == source.pageId }
+                                if (page >= 0) viewModel.removeLayoutItem(item, page)
+                            }
+                        }
+                        AppDropTarget.Info -> openNative(
+                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", source.app.packageName, null))
+                        )
+                    }
+                }
+            )
+
+            appDrag.fallback = AppDropTarget.Home(activePage.pageIndex, Int.MAX_VALUE)
+
+            LaunchedEffect(appDrag.active, appDrag.edge) {
+                val edge = appDrag.edge
+                if (appDrag.active && edge != 0) {
+                    kotlinx.coroutines.delay(550)
+                    while (appDrag.active && appDrag.edge == edge) {
+                        viewModel.setActivePageIndex(viewModel.uiState.value.activePageIndex + edge)
+                        kotlinx.coroutines.delay(850)
+                    }
+                }
+            }
+
             val actions = AppActions(
                 launch = ::launchApp,
-                info = { app -> openNative(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", app.packageName, null))) },
-                toggleDock = viewModel::toggleDockApp,
-                pin = { app ->
-                    if (viewModel.addAppToHomePage(app)) toast("Added to Home") else toast("Already on this page")
+                startDrag = { app, item, fromDock ->
+                    appDrag.start(AppDragSource(app, item, activePage.pageIndex, fromDock))
                 },
                 remove = { item ->
                     viewModel.removeLayoutItem(item, state.activePageIndex)
                     if (item is HomeLayoutItem.Widget) widgetHostManager.deleteAppWidgetId(item.appWidgetId)
-                },
-                group = { groupingApp = it }
+                }
             )
 
             BackHandler(enabled = !onHome || state.activeFolder != null || state.activePageIndex != 0) {
@@ -166,13 +240,32 @@ class MainActivity : ComponentActivity() {
             }
 
             CompositionLocalProvider(LocalAppIcons provides viewModel.appIcons) {
-                AetherLauncherTheme(darkTheme) {
-                    when (screen) {
+                AetherLauncherTheme(darkTheme, state.options.palette) {
+                    Box(Modifier.fillMaxSize()) {
+                    AnimatedContent(
+                        targetState = screen,
+                        modifier = Modifier.fillMaxSize(),
+                        transitionSpec = {
+                            when {
+                                targetState == LauncherScreen.APP_DRAWER && initialState == LauncherScreen.HOME ->
+                                    (slideInVertically(tween(170)) { it / 8 } + fadeIn(tween(140)))
+                                        .togetherWith(fadeOut(tween(100)))
+                                initialState == LauncherScreen.APP_DRAWER && targetState == LauncherScreen.HOME ->
+                                    fadeIn(tween(130)).togetherWith(
+                                        slideOutVertically(tween(160)) { it / 8 } + fadeOut(tween(110))
+                                    )
+                                else -> fadeIn(tween(120)).togetherWith(fadeOut(tween(90)))
+                            }
+                        },
+                        label = "Launcher screen"
+                    ) { displayedScreen ->
+                    when (displayedScreen) {
                         LauncherScreen.HOME, LauncherScreen.EDIT_MODE -> HomeScreen(
-                            state, widgetHostManager.appWidgetManager, widgetHostManager.appWidgetHost, actions,
+                            state, widgetHostManager.appWidgetManager, widgetHostManager.appWidgetHost, actions, appDrag,
                             onOpenDrawer = { viewModel.openScreen(LauncherScreen.APP_DRAWER) },
                             onOpenSearch = { viewModel.openScreen(LauncherScreen.SEARCH_OVERLAY) },
-                            onOpenEditor = { viewModel.toggleCustomizationSheet(true) },
+                            onOpenEditor = { editAnchor = null; viewModel.toggleCustomizationSheet(true) },
+                            onEditAt = { position -> editAnchor = position; viewModel.toggleCustomizationSheet(true) },
                             onOpenFolder = viewModel::openFolder,
                             onAndroidShortcut = ::openAndroidShortcut,
                             widgetPackages = widgetPackages,
@@ -184,7 +277,28 @@ class MainActivity : ComponentActivity() {
                             onPageSelected = viewModel::setActivePageIndex
                         )
                         LauncherScreen.SETTINGS -> LauncherSettingsScreen(
-                            state.options, isDefaultHome,
+                            options = state.options,
+                            overlayAllowed = overlayAllowed,
+                            notificationAccess = notificationAccess,
+                            startOnAndroidTab = cameraSetup,
+                            onOverlayPermission = {
+                                openNative(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
+                            },
+                            onNotificationAccess = {
+                                val intent = if (Build.VERSION.SDK_INT >= 30) {
+                                    Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS).putExtra(
+                                        Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME,
+                                        ComponentName(this@MainActivity, CameraCapsuleService::class.java).flattenToString()
+                                    )
+                                } else Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+                                if (!openNative(intent, showError = false)) openNative(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                            },
+                            onTestNotification = {
+                                if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                } else postCapsuleTest()
+                            },
+                            isDefaultLauncher = isDefaultHome,
                             onBack = { viewModel.openScreen(LauncherScreen.HOME) },
                             onSetDefaultLauncher = ::requestDefaultHomeRole,
                             onAndroidShortcut = ::openAndroidShortcut,
@@ -204,6 +318,8 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
+                    }
+
                     state.activeFolder?.let { folder ->
                         FolderModal(
                             folder = folder,
@@ -217,31 +333,9 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    groupingApp?.let { first ->
-                        val apps = remember(state.installedApps) { state.installedApps.associateBy { it.packageName } }
-                        val targets = activePage.items.filterIsInstance<HomeLayoutItem.App>()
-                            .filter { it != first && it.packageName in apps }
-                        AlertDialog(
-                            onDismissRequest = { groupingApp = null },
-                            title = { Text("Create folder") },
-                            text = {
-                                LazyColumn(Modifier.fillMaxWidth().heightIn(max = 280.dp)) {
-                                    items(targets, key = { it.id }) { second ->
-                                        TextButton(onClick = {
-                                            viewModel.createFolder(first, second)
-                                            groupingApp = null
-                                        }, modifier = Modifier.fillMaxWidth()) {
-                                            Text(apps.getValue(second.packageName).label)
-                                        }
-                                    }
-                                }
-                            },
-                            confirmButton = { TextButton(onClick = { groupingApp = null }) { Text("Cancel") } }
-                        )
-                    }
-
                     if (state.isCustomizationSheetOpen) {
                         CustomizationSheet(
+                            anchor = editAnchor,
                             canRemovePage = state.pages.size > 1 && activePage.items.isEmpty(),
                             onAddPage = {
                                 viewModel.addHomePage()
@@ -283,6 +377,16 @@ class MainActivity : ComponentActivity() {
                                 requestAddWidget(it)
                             }, onClose = close)
                         }
+                    }
+                    if (state.options.showCapsule && !overlayAttached) {
+                        CameraCapsulePreview(
+                            onSetup = {
+                                cameraSetup = true
+                                viewModel.openScreen(LauncherScreen.SETTINGS)
+                            },
+                            modifier = Modifier.align(Alignment.TopCenter)
+                        )
+                    }
                     }
                 }
             }
@@ -370,6 +474,23 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         isDefaultHome = isDefaultHomeApp()
+        overlayAllowed = Settings.canDrawOverlays(this)
+        notificationAccess = packageName in NotificationManagerCompat.getEnabledListenerPackages(this)
+        if (notificationAccess) CameraCapsuleService.refresh(this)
+    }
+
+    private fun postCapsuleTest() {
+        val manager = getSystemService(NotificationManager::class.java)
+        manager.createNotificationChannel(NotificationChannel("capsule_preview", "Camera capsule preview", NotificationManager.IMPORTANCE_DEFAULT))
+        val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        manager.notify(1107, Notification.Builder(this, "capsule_preview")
+            .setSmallIcon(com.aether.launcher.R.drawable.ic_aether_launcher)
+            .setContentTitle("Camera capsule")
+            .setContentText("Incoming notifications expand around your camera.")
+            .setContentIntent(open)
+            .setAutoCancel(true)
+            .build())
     }
 
     private fun isDefaultHomeApp(): Boolean {

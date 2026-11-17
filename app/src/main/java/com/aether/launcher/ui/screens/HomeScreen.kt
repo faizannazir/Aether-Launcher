@@ -13,6 +13,8 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -27,17 +29,18 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aether.launcher.data.model.AppItem
@@ -53,6 +56,7 @@ import com.aether.launcher.ui.components.SquircleIcon
 import com.aether.launcher.ui.components.WidgetHostContainer
 import com.aether.launcher.viewmodel.LauncherState
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -107,8 +111,8 @@ fun GlanceClockHeader(
         Text(
             text = ClockFormatter.formatTime(now, is24Hour),
             color = primary,
-            fontSize = 52.sp,
-            lineHeight = 56.sp,
+            fontSize = 44.sp,
+            lineHeight = 48.sp,
             fontWeight = FontWeight.Light,
             letterSpacing = (-2).sp,
             modifier = Modifier.padding(start = 20.dp, top = 2.dp)
@@ -123,9 +127,11 @@ internal fun HomeScreen(
     appWidgetManager: AppWidgetManager,
     appWidgetHost: AppWidgetHost,
     actions: AppActions,
+    drag: LauncherAppDrag,
     onOpenDrawer: () -> Unit,
     onOpenSearch: () -> Unit,
     onOpenEditor: () -> Unit,
+    onEditAt: (Offset) -> Unit,
     onOpenFolder: (FolderItem) -> Unit,
     onAndroidShortcut: (AndroidShortcut) -> Unit,
     widgetPackages: Set<String>,
@@ -134,11 +140,37 @@ internal fun HomeScreen(
     onPageSelected: (Int) -> Unit
 ) {
     val options = state.options
+    var gestureOrigin by remember { mutableStateOf(Offset.Zero) }
+    val currentEditAt by rememberUpdatedState(onEditAt)
+    val currentLongPressAction by rememberUpdatedState(options.actionFor(HomeGesture.LONG_PRESS))
     val currentGesture by rememberUpdatedState(onGesture)
     val currentAppWidgets by rememberUpdatedState(onAppWidgets)
-    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-    val pageStep by rememberUpdatedState<(Int) -> Unit> { step ->
-        onPageSelected(state.activePageIndex + if (isRtl) -step else step)
+    val pagerState = rememberPagerState(
+        initialPage = state.activePageIndex.coerceIn(0, state.pages.lastIndex.coerceAtLeast(0)),
+        pageCount = { state.pages.size }
+    )
+    val currentSelectedPage by rememberUpdatedState(state.activePageIndex)
+    val currentOnPageSelected by rememberUpdatedState(onPageSelected)
+    var programmaticScroll by remember { mutableStateOf(false) }
+
+    LaunchedEffect(state.activePageIndex, state.pages.size, drag.active) {
+        val target = state.activePageIndex.coerceIn(0, state.pages.lastIndex.coerceAtLeast(0))
+        if (pagerState.currentPage != target || pagerState.currentPageOffsetFraction != 0f) {
+            programmaticScroll = true
+            try {
+                if (drag.active) pagerState.scrollToPage(target)
+                else pagerState.animateScrollToPage(target)
+            } finally {
+                programmaticScroll = false
+            }
+        }
+    }
+    LaunchedEffect(pagerState) {
+        snapshotFlow { pagerState.settledPage to pagerState.isScrollInProgress }.collect { (page, moving) ->
+            if (!moving && !programmaticScroll && page != currentSelectedPage) {
+                currentOnPageSelected(page)
+            }
+        }
     }
     val gradient = remember(state.isDarkTheme) {
         Brush.verticalGradient(
@@ -151,14 +183,8 @@ internal fun HomeScreen(
         HomeBackground.GRADIENT -> Modifier.background(gradient)
         HomeBackground.SOLID -> Modifier.background(Color(0xFF272624))
     }
-    val activePage = state.pages.getOrNull(state.activePageIndex)
     val appByPackage = remember(state.installedApps) { state.installedApps.associateBy { it.packageName } }
-    val visibleItems = remember(activePage, appByPackage) {
-        activePage?.items.orEmpty().filter { it !is HomeLayoutItem.App || it.packageName in appByPackage }
-            .sortedBy { it.position }
-    }
-    val canGroup = remember(visibleItems) { visibleItems.count { it is HomeLayoutItem.App } > 1 }
-    val gesturesEnabled = state.isLayoutReady && !state.isCustomizationSheetOpen && !state.isWidgetSheetOpen && state.activeFolder == null
+    val gesturesEnabled = !drag.active && state.isLayoutReady && !state.isCustomizationSheetOpen && !state.isWidgetSheetOpen && state.activeFolder == null
     val doubleTap = options.actionFor(HomeGesture.DOUBLE_TAP) != GestureAction.NONE
     val longPress = options.actionFor(HomeGesture.LONG_PRESS) != GestureAction.NONE
     val glassAlpha = 0.12f + options.glassOpacity * 0.28f
@@ -172,27 +198,63 @@ internal fun HomeScreen(
                     CustomAccessibilityAction("Edit Home") { onOpenEditor(); true }
                 )
             }
-            .homeSwipes(gesturesEnabled, { currentGesture(it) }, { pageStep(it) })
+            .onGloballyPositioned { gestureOrigin = it.positionInRoot() }
+            .homeSwipes(
+                gesturesEnabled,
+                { currentGesture(it) },
+                onPageStep = {},
+                handleHorizontal = false
+            )
             .then(if (gesturesEnabled && (doubleTap || longPress)) {
                 Modifier.pointerInput(doubleTap, longPress) {
                     detectTapGestures(
                         onDoubleTap = if (doubleTap) { _ -> currentGesture(HomeGesture.DOUBLE_TAP) } else null,
-                        onLongPress = if (longPress) { _ -> currentGesture(HomeGesture.LONG_PRESS) } else null
+                        onLongPress = if (longPress) { point ->
+                            if (currentLongPressAction == GestureAction.EDIT) currentEditAt(gestureOrigin + point)
+                            else currentGesture(HomeGesture.LONG_PRESS)
+                        } else null
                     )
                 }
             } else Modifier)
     ) {
         if (!state.isLayoutReady) return@Box
         Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
-            if (options.showClock) GlanceClockHeader(Modifier.padding(top = 18.dp, bottom = 20.dp))
+            if (drag.active) {
+                LauncherCapsule(drag, Modifier.padding(top = 8.dp, bottom = 4.dp))
+            }
+            if (options.showClock) GlanceClockHeader(Modifier.padding(top = 10.dp, bottom = 16.dp))
             else Spacer(Modifier.height(14.dp))
-            key(activePage?.pageIndex) {
+            HorizontalPager(
+                state = pagerState,
+                key = { state.pages[it].pageIndex },
+                userScrollEnabled = gesturesEnabled,
+                modifier = Modifier.fillMaxWidth().weight(1f)
+            ) { pageIndex ->
+                val page = state.pages[pageIndex]
+                val orderedItems = remember(page) { page.items.sortedBy { it.position } }
+                val visibleItems = remember(orderedItems, appByPackage) {
+                    orderedItems.filter { it !is HomeLayoutItem.App || it.packageName in appByPackage }
+                }
+                val itemIndexes = remember(orderedItems) {
+                    orderedItems.mapIndexed { index, item -> item.id to index }.toMap()
+                }
                 val gridState = rememberLazyGridState()
+                LaunchedEffect(drag.active, drag.placedPackage, visibleItems) {
+                    if (!drag.active && drag.placedPageId == page.pageIndex) {
+                        val index = visibleItems.indexOfFirst {
+                            it is HomeLayoutItem.App && it.packageName == drag.placedPackage
+                        }
+                        if (index >= 0) {
+                            gridState.animateScrollToItem(index)
+                            drag.acknowledgePlacement()
+                        }
+                    }
+                }
                 LazyVerticalGrid(
                     state = gridState,
                     userScrollEnabled = gridState.canScrollBackward || gridState.canScrollForward,
                     columns = GridCells.Fixed(options.grid.columns),
-                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(horizontal = 14.dp, vertical = 2.dp),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -205,10 +267,13 @@ internal fun HomeScreen(
                             is HomeLayoutItem.ServiceWidget -> if (maxLineSpan == 4) 2 else maxLineSpan
                         })
                     }) { item ->
+                        val index = itemIndexes.getValue(item.id)
+                        val groupId = item.takeIf { it is HomeLayoutItem.App || it is HomeLayoutItem.Folder }?.id
+                        val destination = AppDropTarget.Home(page.pageIndex, index, groupId)
+                        Box(Modifier.fillMaxWidth().appDropTarget(drag, destination)) {
                         when (item) {
                             is HomeLayoutItem.App -> {
                                 val app = appByPackage.getValue(item.packageName)
-                                var menuOpen by remember { mutableStateOf(false) }
                                 val offersWidgets = options.swipeForWidgets && app.packageName in widgetPackages
                                 val openWidgets = remember(app, offersWidgets, gesturesEnabled) {
                                     if (offersWidgets && gesturesEnabled) ({ currentAppWidgets(app) }) else null
@@ -225,7 +290,7 @@ internal fun HomeScreen(
                                         SquircleIcon(
                                             app = app,
                                             onClick = { actions.launch(app) },
-                                            onLongClick = { menuOpen = true },
+                                            onLongClick = { actions.startDrag(app, item, false) },
                                             showLabel = options.showLabels,
                                             size = options.iconSize.dp.coerceAtMost(if (options.grid.columns == 5) 50.dp else 56.dp),
                                             isDarkTheme = state.isDarkTheme,
@@ -236,8 +301,6 @@ internal fun HomeScreen(
                                                 .background(Color.White.copy(alpha = 0.58f))
                                         )
                                     }
-                                    AppMenu(menuOpen, { menuOpen = false }, app, actions,
-                                        state.dockApps.any { it.packageName == app.packageName }, item, canGroup)
                                 }
                             }
                             is HomeLayoutItem.Folder -> {
@@ -256,6 +319,7 @@ internal fun HomeScreen(
                                 RemoveTile { actions.remove(item) }
                             }
                         }
+                        }
                     }
                 }
             }
@@ -273,8 +337,8 @@ internal fun HomeScreen(
                         ).semantics { contentDescription = "Home page ${index + 1} of ${state.pages.size}" },
                         contentAlignment = Alignment.Center
                     ) {
-                        Box(Modifier.size(if (index == state.activePageIndex) 7.dp else 4.dp).clip(CircleShape)
-                            .background(Color.White.copy(alpha = if (index == state.activePageIndex) 1f else 0.56f)))
+                        Box(Modifier.size(if (index == pagerState.currentPage) 7.dp else 4.dp).clip(CircleShape)
+                            .background(Color.White.copy(alpha = if (index == pagerState.currentPage) 1f else 0.56f)))
                     }
                 }
             }
@@ -291,6 +355,7 @@ internal fun HomeScreen(
                 FloatingDock(
                     dockApps = state.dockApps,
                     actions = actions,
+                    drag = drag,
                     isDarkTheme = state.isDarkTheme,
                     isBlurEnabled = options.glass,
                     glassOpacity = options.glassOpacity,

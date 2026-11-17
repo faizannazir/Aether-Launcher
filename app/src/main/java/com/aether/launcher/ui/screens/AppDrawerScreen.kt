@@ -47,7 +47,7 @@ internal fun AppDrawerScreen(
     val focus = LocalFocusManager.current
     val scope = rememberCoroutineScope()
     val search = remember { AppSearchEngine() }
-    val foreground = MaterialTheme.colorScheme.onSurface
+    val foreground = MaterialTheme.colorScheme.onSurfaceVariant
     val category = if (state.options.showCategories) state.selectedCategory else AppCategory.ALL
     val apps = remember(state.installedApps, category, query) {
         val matching = if (category == AppCategory.ALL) state.installedApps
@@ -69,7 +69,7 @@ internal fun AppDrawerScreen(
     LaunchedEffect(query, category) { grid.scrollToItem(0) }
 
     Column(
-        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)
+        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (state.options.glass) .94f else 1f))
             .statusBarsPadding().navigationBarsPadding().imePadding()
             .semantics {
                 customActions = listOf(CustomAccessibilityAction("Return to Home") { close(); true })
@@ -93,7 +93,7 @@ internal fun AppDrawerScreen(
             }
     ) {
         LauncherSearchBar(
-            foreground, MaterialTheme.colorScheme.surfaceVariant,
+            foreground, MaterialTheme.colorScheme.surface,
             Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
             value = query, onChange = { query = it }
         )
@@ -110,7 +110,11 @@ internal fun AppDrawerScreen(
         }
         if (apps.isEmpty()) {
             Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                Text(if (query.isBlank()) "No apps here" else "No matching apps")
+                Text(
+                    if (query.isBlank()) "No apps here" else "No matching apps",
+                    color = foreground,
+                    style = MaterialTheme.typography.bodyLarge
+                )
             }
         } else {
             Row(Modifier.weight(1f)) {
@@ -152,16 +156,12 @@ private fun sectionFor(app: AppItem): String =
 
 @Composable
 private fun AppCell(app: AppItem, state: LauncherState, actions: AppActions) {
-    var menuOpen by remember { mutableStateOf(false) }
-    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        SquircleIcon(
-            app, onClick = { actions.launch(app) }, onLongClick = { menuOpen = true },
-            size = 42.dp, isDarkTheme = state.isDarkTheme,
-            labelColor = MaterialTheme.colorScheme.onSurface, modifier = Modifier.fillMaxWidth()
-        )
-        AppMenu(menuOpen, { menuOpen = false }, app, actions,
-            state.dockApps.any { it.packageName == app.packageName })
-    }
+    SquircleIcon(
+        app, onClick = { actions.launch(app) },
+        onLongClick = { actions.startDrag(app, null, false) },
+        size = 42.dp, isDarkTheme = state.isDarkTheme,
+        labelColor = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.fillMaxWidth()
+    )
 }
 
 @Composable

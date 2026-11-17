@@ -12,7 +12,8 @@ import kotlin.math.abs
 internal fun Modifier.homeSwipes(
     enabled: Boolean,
     onGesture: (HomeGesture) -> Unit,
-    onPageStep: (Int) -> Unit
+    onPageStep: (Int) -> Unit,
+    handleHorizontal: Boolean = true
 ): Modifier = if (!enabled) this else pointerInput(Unit) {
     val swipeThreshold = 32.dp.toPx()
     awaitEachGesture {
@@ -53,6 +54,7 @@ internal fun Modifier.homeSwipes(
             }
             if (pointer.isConsumed) break
             if (axis == null && maxOf(x, y) >= viewConfiguration.touchSlop) {
+                if (x > y && !handleHorizontal) break
                 axis = if (x > y) SwipeAxis.HORIZONTAL else SwipeAxis.VERTICAL
             }
             if (axis != null) pointer.consume()
