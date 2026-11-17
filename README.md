@@ -30,13 +30,19 @@ Aether is an independent Android Home app. Its large folders and service cards d
 ## Features
 
 - **Home:** Android wallpaper, a neutral gradient or solid background, optional clock, compact search and a customizable dock. A fresh layout starts with a controls card, a Tools folder when supported apps are installed, and two populated pages when enough apps are available.
-- **Layout:** choose the grid, icon size and labels. Hold an app to add or remove it from Home or the dock, or group it into a large folder with individually tappable apps.
-- **Edit Home:** pinch in, hold empty space or hold a page dot to add a page, Android widget or Android controls card, or to open launcher settings. Swipe sideways to change pages.
+- **Layout:** choose the grid, icon size and labels. Hold a drawer app to lift it directly onto Home, then release anywhere to place it automatically. Drag Home apps to reorder, into the dock, or to Remove. Pause over an app or folder to group shortcuts.
+- **Edit Home:** hold empty space for a menu beside your finger. Pinch in or hold a page dot to open Home options. Add pages, Android widgets and controls, or open launcher settings. Swipe sideways to change pages.
 - **Gestures:** assign swipe up, swipe down, double tap, pinch and hold to launcher actions or supported native Android controls. Swipe up on a supported Home app to choose its Android widget. A small line marks apps with widgets. This behavior can be disabled in gesture settings.
 - **Drawer:** swipe up from Home, including from the dock. Search installed apps or jump by letter with the alphabet index. Pull down from the top of the list to return Home. Drawer columns and category chips are configurable. Search uses the same 44 dp control on Home, in the drawer and in search results.
 - **Android integration:** open Wallpaper & style, the Home app chooser, navigation mode, Internet, sound, display, notifications and accessibility. Android provides the system UI and applies changes made in these controls.
 
 Existing installations can apply the new default pages from Edit Home → Launcher settings → Home → Apply starter layout. Android shows an in-app confirmation before the pages, widgets and dock are replaced.
+
+## Camera capsule
+
+The compact camera capsule surrounds the physical camera cutout and expands for incoming notifications while the phone is unlocked. Enable **Display over other apps** and **Notification access** in Launcher settings → Android → Camera capsule. The setup includes a test notification and a switch for showing notification titles. Android asks separately for permission to send that test notification.
+
+Notification content stays in memory while it is displayed. The capsule respects Do Not Disturb and clears its content when the phone locks or the source notification is removed. Appearance settings offer wallpaper colors, Graphite, Sage and Orchid palettes.
 
 ## Performance
 
