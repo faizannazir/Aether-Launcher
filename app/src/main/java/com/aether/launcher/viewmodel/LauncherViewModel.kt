@@ -168,9 +168,22 @@ class LauncherViewModel(
         fromDock: Boolean = false
     ): Boolean {
         val current = _uiState.value
-        val destination = current.pages.indexOfFirst { it.pageIndex == targetPageId }
+        var destination = current.pages.indexOfFirst { it.pageIndex == targetPageId }
         if (destination < 0) return false
         val pages = current.pages.toMutableList()
+        val target = pages[destination]
+        val alreadyOnTarget = target.items.any {
+            it.id == sourceItemId || it is HomeLayoutItem.App && it.packageName == app.packageName
+        }
+        if (target.items.size >= current.options.grid.capacity && !alreadyOnTarget) {
+            destination = pages.indexOfFirst {
+                it.pageIndex != sourcePageId && it.items.size < current.options.grid.capacity
+            }
+            if (destination < 0) {
+                pages.add(PageData((pages.maxOfOrNull { it.pageIndex } ?: -1) + 1))
+                destination = pages.lastIndex
+            }
+        }
         val sourceIndex = pages.indexOfFirst { it.pageIndex == sourcePageId }
         val oldItems = pages[destination].items.sortedBy { it.position }
         val existing = oldItems.filterIsInstance<HomeLayoutItem.App>().firstOrNull { it.packageName == app.packageName }

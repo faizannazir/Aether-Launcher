@@ -175,6 +175,22 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `dropping on a full page creates a page with an available position`() {
+        repeat(20) { index ->
+            viewModel.addAppToHomePage(AppItem("app.$index", "Activity", "App $index"))
+        }
+        val overflow = AppItem("overflow", "Activity", "Overflow")
+
+        assertTrue(viewModel.placeAppOnHome(overflow, 0, Int.MAX_VALUE))
+
+        val state = viewModel.uiState.value
+        assertEquals(20, state.pages.first().items.size)
+        assertEquals(2, state.pages.size)
+        assertEquals(1, state.activePageIndex)
+        assertEquals("overflow", (state.pages.last().items.single() as HomeLayoutItem.App).packageName)
+    }
+
+    @Test
     fun `a drop on a removed page preserves the source shortcut`() {
         val app = AppItem("moving", "Activity", "Moving")
         viewModel.addAppToHomePage(app)
