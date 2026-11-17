@@ -13,6 +13,7 @@ import com.aether.launcher.data.model.HomeBackground
 import com.aether.launcher.data.model.HomeGesture
 import com.aether.launcher.data.model.HomeGrid
 import com.aether.launcher.data.model.LauncherOptions
+import com.aether.launcher.data.model.LauncherPalette
 import com.aether.launcher.data.model.LauncherTheme
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -22,6 +23,9 @@ private val Context.dataStore by preferencesDataStore(name = "aether_preferences
 class HomePreferences(private val context: Context) {
     private companion object {
         val THEME = stringPreferencesKey("theme")
+        val PALETTE = stringPreferencesKey("palette")
+        val CAPSULE = booleanPreferencesKey("show_capsule")
+        val CAPSULE_TITLES = booleanPreferencesKey("capsule_show_titles")
         val LEGACY_DARK_THEME = booleanPreferencesKey("dark_theme")
         val BACKGROUND = stringPreferencesKey("home_background")
         val GLASS = booleanPreferencesKey("blur_enabled")
@@ -49,6 +53,9 @@ class HomePreferences(private val context: Context) {
         context.dataStore.edit { prefs ->
             val options = transform(readOptions(prefs))
             prefs[THEME] = options.theme.name
+            prefs[PALETTE] = options.palette.name
+            prefs[CAPSULE] = options.showCapsule
+            prefs[CAPSULE_TITLES] = options.capsuleShowTitles
             prefs[BACKGROUND] = options.background.name
             prefs[GLASS] = options.glass
             prefs[GLASS_OPACITY] = options.glassOpacity
@@ -82,6 +89,9 @@ class HomePreferences(private val context: Context) {
 
         return LauncherOptions(
             theme = theme,
+            palette = LauncherPalette.entries.firstOrNull { it.name == prefs[PALETTE] } ?: LauncherPalette.WALLPAPER,
+            showCapsule = prefs[CAPSULE] ?: true,
+            capsuleShowTitles = prefs[CAPSULE_TITLES] ?: true,
             background = HomeBackground.entries.firstOrNull { it.name == prefs[BACKGROUND] } ?: HomeBackground.WALLPAPER,
             glass = prefs[GLASS] ?: true,
             glassOpacity = ((prefs[GLASS_OPACITY] ?: 0.75f).takeIf(Float::isFinite) ?: 0.75f).coerceIn(0f, 1f),

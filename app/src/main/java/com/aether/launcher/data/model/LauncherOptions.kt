@@ -4,6 +4,10 @@ enum class LauncherTheme(val title: String) {
     SYSTEM("System"), LIGHT("Light"), DARK("Dark")
 }
 
+enum class LauncherPalette(val title: String) {
+    WALLPAPER("Wallpaper colors"), GRAPHITE("Graphite"), SAGE("Sage"), ORCHID("Orchid")
+}
+
 enum class HomeBackground(val title: String) {
     WALLPAPER("Wallpaper"), GRADIENT("Gradient"), SOLID("Solid")
 }
@@ -31,6 +35,9 @@ enum class GestureAction(val title: String) {
 
 data class LauncherOptions(
     val theme: LauncherTheme = LauncherTheme.SYSTEM,
+    val palette: LauncherPalette = LauncherPalette.WALLPAPER,
+    val showCapsule: Boolean = true,
+    val capsuleShowTitles: Boolean = true,
     val background: HomeBackground = HomeBackground.WALLPAPER,
     val glass: Boolean = true,
     val glassOpacity: Float = 0.75f,
