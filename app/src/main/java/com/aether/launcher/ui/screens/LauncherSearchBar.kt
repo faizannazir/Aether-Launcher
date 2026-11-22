@@ -20,10 +20,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.aether.launcher.ui.components.glassEdge
 
 @Composable
 internal fun LauncherSearchBar(
@@ -34,9 +36,12 @@ internal fun LauncherSearchBar(
     onChange: ((String) -> Unit)? = null,
     onOpen: (() -> Unit)? = null,
     onClose: (() -> Unit)? = null,
-    onSubmit: (() -> Unit)? = null
+    onSubmit: (() -> Unit)? = null,
+    glass: Boolean = false
 ) {
-    val surface = Modifier.fillMaxWidth().height(44.dp).clip(RoundedCornerShape(22.dp)).background(background)
+    val shape = RoundedCornerShape(22.dp)
+    val edge = if (glass) glassEdge(shape, darkSurface = background.luminance() < .5f) else Modifier
+    val surface = Modifier.fillMaxWidth().height(44.dp).clip(shape).background(background).then(edge)
     val style = TextStyle(color = foreground, fontSize = 14.sp)
     if (onChange == null) {
         Row(

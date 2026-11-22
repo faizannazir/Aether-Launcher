@@ -346,6 +346,7 @@ internal fun HomeScreen(
                 LauncherSearchBar(
                     foreground = Color.White,
                     background = if (options.glass) Color.Black.copy(alpha = glassAlpha) else Color(0xFF242321),
+                    glass = options.glass,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
                     onOpen = onOpenSearch
                 )

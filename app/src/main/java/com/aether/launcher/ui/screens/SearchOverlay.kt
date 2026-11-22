@@ -59,6 +59,7 @@ fun SearchOverlay(
             LauncherSearchBar(
                 foreground = textColor,
                 background = MaterialTheme.colorScheme.surfaceVariant,
+                glass = state.options.glass,
                 modifier = Modifier.focusRequester(focus),
                 value = state.searchQuery,
                 onChange = onQueryChange,

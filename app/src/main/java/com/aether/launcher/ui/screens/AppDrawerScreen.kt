@@ -15,8 +15,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -35,6 +40,7 @@ internal fun AppDrawerScreen(
     state: LauncherState,
     actions: AppActions,
     onCategorySelect: (AppCategory) -> Unit,
+    visibility: State<Boolean>,
     onGoogleSearch: (String) -> Unit,
     onGemini: () -> Unit,
     onAddToHome: (AppItem) -> Unit,
@@ -42,9 +48,33 @@ internal fun AppDrawerScreen(
 ) {
     var query by remember { mutableStateOf("") }
     val grid = rememberLazyGridState()
+    val focusManager = LocalFocusManager.current
+    var searchFocused by remember { mutableStateOf(false) }
+    LaunchedEffect(visibility) {
+        snapshotFlow { visibility.value }.collect { visible ->
+            if (!visible) {
+                if (searchFocused) focusManager.clearFocus(force = true)
+                query = ""
+                if (grid.canScrollBackward) grid.scrollToItem(0)
+            }
+        }
+    }
     val close by rememberUpdatedState(onCloseDrawer)
     val search = remember { AppSearchEngine() }
-    val foreground = MaterialTheme.colorScheme.onSurface
+    val colors = MaterialTheme.colorScheme
+    val foreground = colors.onSurface
+    val glassOpacity = state.options.glassOpacity.coerceIn(0f, 1f)
+    val backdrop = if (state.options.glass) {
+        val surface = colors.surfaceVariant
+        val glass = remember(surface, glassOpacity) {
+            Brush.verticalGradient(
+                0f to lerp(surface, Color.White, .06f).copy(alpha = .84f + .08f * glassOpacity),
+                .25f to surface.copy(alpha = .90f + .06f * glassOpacity),
+                1f to surface.copy(alpha = .94f + .05f * glassOpacity)
+            )
+        }
+        Modifier.background(glass)
+    } else Modifier.background(colors.surfaceVariant)
     val category = if (state.options.showCategories) state.selectedCategory else AppCategory.ALL
     val apps = remember(state.installedApps, category, query) {
         val matching = if (category == AppCategory.ALL) state.installedApps
@@ -56,7 +86,7 @@ internal fun AppDrawerScreen(
     }
 
     Column(
-        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (state.options.glass) .94f else 1f))
+        Modifier.fillMaxSize().then(backdrop)
             .statusBarsPadding().navigationBarsPadding().imePadding()
             .semantics {
                 customActions = listOf(CustomAccessibilityAction("Return to Home") { close(); true })
@@ -89,9 +119,11 @@ internal fun AppDrawerScreen(
             SearchProviderActions(onGoogleSearch = { onGoogleSearch(query) }, onGemini = onGemini)
         }
         LauncherSearchBar(
-            foreground, MaterialTheme.colorScheme.surface,
-            Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+            foreground, if (state.options.glass) colors.surfaceContainerHigh.copy(alpha = .86f) else colors.surface,
+            Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
+                .onFocusChanged { searchFocused = it.hasFocus },
             value = query, onChange = { query = it },
+            glass = state.options.glass,
             onSubmit = apps.firstOrNull()?.takeIf { query.isNotBlank() }?.let { app ->
                 { actions.launch(app) }
             }
