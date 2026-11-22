@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
@@ -12,16 +13,19 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.aether.launcher.ui.components.glassEdge
 
 @Composable
 internal fun LauncherSearchBar(
@@ -31,9 +35,13 @@ internal fun LauncherSearchBar(
     value: String = "",
     onChange: ((String) -> Unit)? = null,
     onOpen: (() -> Unit)? = null,
-    onClose: (() -> Unit)? = null
+    onClose: (() -> Unit)? = null,
+    onSubmit: (() -> Unit)? = null,
+    glass: Boolean = false
 ) {
-    val surface = Modifier.fillMaxWidth().height(44.dp).clip(RoundedCornerShape(22.dp)).background(background)
+    val shape = RoundedCornerShape(22.dp)
+    val edge = if (glass) glassEdge(shape, darkSurface = background.luminance() < .5f) else Modifier
+    val surface = Modifier.fillMaxWidth().height(44.dp).clip(shape).background(background).then(edge)
     val style = TextStyle(color = foreground, fontSize = 14.sp)
     if (onChange == null) {
         Row(
@@ -51,6 +59,7 @@ internal fun LauncherSearchBar(
             singleLine = true,
             textStyle = style,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { onSubmit?.invoke() }),
             cursorBrush = SolidColor(foreground),
             decorationBox = { field ->
                 Row(
@@ -74,5 +83,14 @@ internal fun LauncherSearchBar(
                 }
             }
         )
+    }
+}
+
+
+@Composable
+internal fun SearchProviderActions(onGoogleSearch: () -> Unit, onGemini: () -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+        TextButton(onClick = onGoogleSearch) { Text("Google") }
+        TextButton(onClick = onGemini) { Text("Gemini") }
     }
 }

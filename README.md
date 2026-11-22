@@ -33,8 +33,9 @@ Aether is an independent Android Home app. Its large folders and service cards d
 - **Layout:** choose the grid, icon size and labels. Hold a drawer app to lift it directly onto Home, then release anywhere to place it automatically. Drag Home apps to reorder, into the dock, or to Remove. Pause over an app or folder to group shortcuts.
 - **Edit Home:** hold empty space for a menu beside your finger. Pinch in or hold a page dot to open Home options. Add pages, Android widgets and controls, or open launcher settings. Swipe sideways to change pages.
 - **Gestures:** assign swipe up, swipe down, double tap, pinch and hold to launcher actions or supported native Android controls. Swipe up on a supported Home app to choose its Android widget. A small line marks apps with widgets. This behavior can be disabled in gesture settings.
-- **Drawer:** swipe up from Home, including from the dock. Search installed apps or jump by letter with the alphabet index. Pull down from the top of the list to return Home. Drawer columns and category chips are configurable. Search uses the same 44 dp control on Home, in the drawer and in search results.
+- **Drawer:** swipe up from Home, including from the dock. Browse a continuous alphabetical grid or search installed apps. Pull down from the top of the list to return Home. Drawer columns and category chips are configurable. Search stays visible while the drawer scrolls. The keyboard search action opens the first matching app.
 - **Android integration:** open Wallpaper & style, the Home app chooser, navigation mode, Internet, sound, display, notifications and accessibility. Android provides the system UI and applies changes made in these controls.
+- **Google and Gemini:** use their buttons in the drawer or Home search, or assign either action in Launcher settings → Gestures. Tapping Google submits the current query if present. Gemini opens the app or website with no query.
 
 Existing installations can apply the new default pages from Edit Home → Launcher settings → Home → Apply starter layout. Android shows an in-app confirmation before the pages, widgets and dock are replaced.
 

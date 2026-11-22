@@ -34,7 +34,9 @@ fun SearchOverlay(
     state: com.aether.launcher.viewmodel.LauncherState,
     onQueryChange: (String) -> Unit,
     onAppClick: (AppItem) -> Unit,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    onGoogleSearch: (String) -> Unit,
+    onGemini: () -> Unit
 ) {
     val textColor = if (state.isDarkTheme) Color.White else Color(0xFF191C1E)
 
@@ -57,13 +59,16 @@ fun SearchOverlay(
             LauncherSearchBar(
                 foreground = textColor,
                 background = MaterialTheme.colorScheme.surfaceVariant,
+                glass = state.options.glass,
                 modifier = Modifier.focusRequester(focus),
                 value = state.searchQuery,
                 onChange = onQueryChange,
-                onClose = onClose
+                onClose = onClose,
+                onSubmit = state.searchResults.firstOrNull()?.let { app -> { onAppClick(app) } }
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            SearchProviderActions(onGoogleSearch = { onGoogleSearch(state.searchQuery) }, onGemini = onGemini)
+            Spacer(modifier = Modifier.height(8.dp))
 
             // Search Results
             if (state.searchResults.isNotEmpty()) {

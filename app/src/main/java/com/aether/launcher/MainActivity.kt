@@ -7,6 +7,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.ComponentName
 import android.app.Activity
+import android.app.SearchManager
 import android.app.role.RoleManager
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProviderInfo
@@ -31,8 +32,6 @@ import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -42,13 +41,19 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.State
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.MeasurePolicy
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -81,6 +86,7 @@ import com.aether.launcher.ui.theme.AetherLauncherTheme
 import com.aether.launcher.viewmodel.LauncherScreen
 import com.aether.launcher.viewmodel.LauncherViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
@@ -144,8 +150,10 @@ class MainActivity : ComponentActivity() {
             val state = rawState.copy(isDarkTheme = darkTheme)
             val screen = state.currentScreen
             val onHome = screen == LauncherScreen.HOME
+            val drawerVisibility = remember { derivedStateOf { rawState.currentScreen == LauncherScreen.APP_DRAWER } }
+            val drawerVisible by drawerVisibility
             val showWallpaper = state.options.background == HomeBackground.WALLPAPER &&
-                (onHome || state.options.glass && screen == LauncherScreen.APP_DRAWER)
+                (onHome || state.options.glass && drawerVisible)
             val activePage = state.pages[state.activePageIndex]
             var editAnchor by remember { mutableStateOf<Offset?>(null) }
             var widgetSourcePackage by rememberSaveable { mutableStateOf<String?>(null) }
@@ -156,7 +164,8 @@ class MainActivity : ComponentActivity() {
             }
             val widgetPackages = remember(providers) { providers.mapTo(mutableSetOf()) { it.provider.packageName } }
 
-            LaunchedEffect(showWallpaper, onHome, darkTheme) {
+            val backgroundDark = darkTheme && !showWallpaper
+            LaunchedEffect(showWallpaper, backgroundDark) {
                 if (showWallpaper) {
                     window.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
                     window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER)
@@ -165,11 +174,14 @@ class MainActivity : ComponentActivity() {
                     }
                 } else {
                     window.clearFlags(WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER)
-                    window.setBackgroundDrawable(ColorDrawable(if (darkTheme) 0xFF101419.toInt() else 0xFFF4F6F8.toInt()))
+                    window.setBackgroundDrawable(ColorDrawable(if (backgroundDark) 0xFF101419.toInt() else 0xFFF4F6F8.toInt()))
                 }
+            }
+            val lightSystemBars = !onHome && !darkTheme
+            LaunchedEffect(lightSystemBars) {
                 WindowInsetsControllerCompat(window, window.decorView).apply {
-                    isAppearanceLightStatusBars = !onHome && !darkTheme
-                    isAppearanceLightNavigationBars = !onHome && !darkTheme
+                    isAppearanceLightStatusBars = lightSystemBars
+                    isAppearanceLightNavigationBars = lightSystemBars
                 }
             }
 
@@ -220,16 +232,23 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            val actions = AppActions(
-                launch = ::launchApp,
-                startDrag = { app, item, fromDock ->
-                    appDrag.start(AppDragSource(app, item, activePage.pageIndex, fromDock))
-                },
-                remove = { item ->
-                    viewModel.removeLayoutItem(item, state.activePageIndex)
-                    if (item is HomeLayoutItem.Widget) widgetHostManager.deleteAppWidgetId(item.appWidgetId)
-                }
-            )
+            val pageIndex = state.activePageIndex
+            val pageId = activePage.pageIndex
+            val actions = remember(appDrag, pageIndex, pageId) {
+                AppActions(
+                    launch = ::launchApp,
+                    startDrag = { app, item, fromDock ->
+                        appDrag.start(AppDragSource(app, item, pageId, fromDock))
+                    },
+                    remove = { item ->
+                        viewModel.removeLayoutItem(item, pageIndex)
+                        if (item is HomeLayoutItem.Widget) widgetHostManager.deleteAppWidgetId(item.appWidgetId)
+                    }
+                )
+            }
+
+            // Navigation does not change either surface's contents.
+            val homeContentState = state.copy(currentScreen = LauncherScreen.HOME)
 
             BackHandler(enabled = !onHome || state.activeFolder != null || state.activePageIndex != 0) {
                 when {
@@ -243,39 +262,52 @@ class MainActivity : ComponentActivity() {
                 AetherLauncherTheme(darkTheme, state.options.palette) {
                     Box(Modifier.fillMaxSize()) {
                     AnimatedContent(
-                        targetState = screen,
+                        targetState = if (drawerVisible) LauncherScreen.HOME else screen,
                         modifier = Modifier.fillMaxSize(),
-                        transitionSpec = {
-                            when {
-                                targetState == LauncherScreen.APP_DRAWER && initialState == LauncherScreen.HOME ->
-                                    (slideInVertically(tween(170)) { it / 8 } + fadeIn(tween(140)))
-                                        .togetherWith(fadeOut(tween(100)))
-                                initialState == LauncherScreen.APP_DRAWER && targetState == LauncherScreen.HOME ->
-                                    fadeIn(tween(130)).togetherWith(
-                                        slideOutVertically(tween(160)) { it / 8 } + fadeOut(tween(110))
-                                    )
-                                else -> fadeIn(tween(120)).togetherWith(fadeOut(tween(90)))
-                            }
-                        },
+                        transitionSpec = { fadeIn(tween(120)).togetherWith(fadeOut(tween(90))) },
                         label = "Launcher screen"
                     ) { displayedScreen ->
                     when (displayedScreen) {
-                        LauncherScreen.HOME, LauncherScreen.EDIT_MODE -> HomeScreen(
-                            state, widgetHostManager.appWidgetManager, widgetHostManager.appWidgetHost, actions, appDrag,
-                            onOpenDrawer = { viewModel.openScreen(LauncherScreen.APP_DRAWER) },
-                            onOpenSearch = { viewModel.openScreen(LauncherScreen.SEARCH_OVERLAY) },
-                            onOpenEditor = { editAnchor = null; viewModel.toggleCustomizationSheet(true) },
-                            onEditAt = { position -> editAnchor = position; viewModel.toggleCustomizationSheet(true) },
-                            onOpenFolder = viewModel::openFolder,
-                            onAndroidShortcut = ::openAndroidShortcut,
-                            widgetPackages = widgetPackages,
-                            onAppWidgets = { app ->
-                                widgetSourcePackage = app.packageName
-                                viewModel.toggleWidgetSheet(true)
+                        LauncherScreen.HOME, LauncherScreen.EDIT_MODE -> HomeAndDrawer(
+                            visibility = drawerVisibility,
+                            home = remember(homeContentState, actions, widgetPackages) {
+                                {
+                                    HomeScreen(
+                                        homeContentState, widgetHostManager.appWidgetManager,
+                                        widgetHostManager.appWidgetHost, actions, appDrag,
+                                        onOpenDrawer = { viewModel.openScreen(LauncherScreen.APP_DRAWER) },
+                                        onOpenSearch = { viewModel.openScreen(LauncherScreen.SEARCH_OVERLAY) },
+                                        onOpenEditor = { editAnchor = null; viewModel.toggleCustomizationSheet(true) },
+                                        onEditAt = { position -> editAnchor = position; viewModel.toggleCustomizationSheet(true) },
+                                        onOpenFolder = viewModel::openFolder,
+                                        onAndroidShortcut = ::openAndroidShortcut,
+                                        widgetPackages = widgetPackages,
+                                        onAppWidgets = { app ->
+                                            widgetSourcePackage = app.packageName
+                                            viewModel.toggleWidgetSheet(true)
+                                        },
+                                        onGesture = ::performGesture,
+                                        onPageSelected = viewModel::setActivePageIndex
+                                    )
+                                }
                             },
-                            onGesture = ::performGesture,
-                            onPageSelected = viewModel::setActivePageIndex
+                            drawer = remember(homeContentState, actions) {
+                                {
+                                    AppDrawerScreen(
+                                        homeContentState, actions, viewModel::onCategorySelected,
+                                        visibility = drawerVisibility,
+                                        onGoogleSearch = ::openGoogleSearch,
+                                        onGemini = ::openGemini,
+                                        onAddToHome = { app ->
+                                            viewModel.addAppToHomePage(app)
+                                            viewModel.openScreen(LauncherScreen.HOME)
+                                        },
+                                        onCloseDrawer = { viewModel.openScreen(LauncherScreen.HOME) }
+                                    )
+                                }
+                            }
                         )
+
                         LauncherScreen.SETTINGS -> LauncherSettingsScreen(
                             options = state.options,
                             overlayAllowed = overlayAllowed,
@@ -308,12 +340,12 @@ class MainActivity : ComponentActivity() {
                             },
                             onUpdate = viewModel::updateOptions
                         )
-                        LauncherScreen.APP_DRAWER -> AppDrawerScreen(
-                            state, actions, viewModel::onCategorySelected,
-                            onCloseDrawer = { viewModel.openScreen(LauncherScreen.HOME) }
-                        )
+                        LauncherScreen.APP_DRAWER -> Unit
+
                         LauncherScreen.SEARCH_OVERLAY -> SearchOverlay(
                             state, viewModel::onSearchQueryChanged, ::launchApp,
+                            onGoogleSearch = ::openGoogleSearch,
+                            onGemini = ::openGemini,
                             onClose = { viewModel.openScreen(LauncherScreen.HOME) }
                         )
                     }
@@ -393,6 +425,43 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    @Composable
+    private fun HomeAndDrawer(
+        visibility: State<Boolean>,
+        home: @Composable () -> Unit,
+        drawer: @Composable () -> Unit
+    ) {
+        var prepareDrawer by remember { mutableStateOf(false) }
+        LaunchedEffect(visibility) {
+            // Let the first Home frame render before preparing the drawer.
+            kotlinx.coroutines.withTimeoutOrNull(250) {
+                snapshotFlow { visibility.value }.first { it }
+            }
+            prepareDrawer = true
+        }
+
+        val showDrawerSurface = prepareDrawer || visibility.value
+        // Read navigation state during placement so a switch doesn't remeasure the grids.
+        val placement = remember(visibility) {
+            MeasurePolicy { surfaces, constraints ->
+                val homeSurface = surfaces[0].measure(constraints)
+                val drawerSurface = surfaces.getOrNull(1)?.measure(constraints)
+                layout(homeSurface.width, homeSurface.height) {
+                    if (visibility.value) drawerSurface?.placeRelative(0, 0)
+                    else homeSurface.placeRelative(0, 0)
+                }
+            }
+        }
+        Layout(
+            content = {
+                Box(Modifier.fillMaxSize()) { home() }
+                if (showDrawerSurface) Box(Modifier.fillMaxSize()) { drawer() }
+            },
+            modifier = Modifier.fillMaxSize(),
+            measurePolicy = placement
+        )
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
@@ -412,6 +481,34 @@ class MainActivity : ComponentActivity() {
             GestureAction.INTERNET -> openAndroidShortcut(AndroidShortcut.INTERNET)
             GestureAction.ANDROID_SETTINGS -> openAndroidShortcut(AndroidShortcut.SETTINGS)
             GestureAction.NAVIGATION -> openAndroidShortcut(AndroidShortcut.NAVIGATION)
+            GestureAction.GOOGLE -> openGoogleSearch("")
+            GestureAction.GEMINI -> openGemini()
+        }
+    }
+
+    private fun openGoogleSearch(query: String) {
+        val trimmed = query.trim()
+        val native = if (trimmed.isEmpty()) {
+            packageManager.getLaunchIntentForPackage("com.google.android.googlequicksearchbox")
+        } else {
+            Intent(Intent.ACTION_WEB_SEARCH)
+                .setPackage("com.google.android.googlequicksearchbox")
+                .putExtra(SearchManager.QUERY, trimmed)
+        }
+
+        val web = Uri.parse("https://www.google.com/").buildUpon()
+        if (trimmed.isNotEmpty()) web.path("search").appendQueryParameter("q", trimmed)
+        if ((native != null && openNative(native, showError = false)) ||
+            openNative(Intent(Intent.ACTION_VIEW, web.build()))) {
+            viewModel.openScreen(LauncherScreen.HOME)
+        }
+    }
+
+    private fun openGemini() {
+        val native = packageManager.getLaunchIntentForPackage("com.google.android.apps.bard")
+        if ((native != null && openNative(native, showError = false)) ||
+            openNative(Intent(Intent.ACTION_VIEW, Uri.parse("https://gemini.google.com/")))) {
+            viewModel.openScreen(LauncherScreen.HOME)
         }
     }
 

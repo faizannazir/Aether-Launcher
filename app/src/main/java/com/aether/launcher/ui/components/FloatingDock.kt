@@ -31,14 +31,17 @@ internal fun FloatingDock(
     iconSize: Dp,
     modifier: Modifier = Modifier
 ) {
+    val shape = RoundedCornerShape(24.dp)
+    val edge = if (isBlurEnabled) glassEdge(shape, darkSurface = true) else Modifier
     Row(
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .fillMaxWidth().appDropTarget(drag, AppDropTarget.Dock)
             .padding(horizontal = 20.dp)
-            .clip(RoundedCornerShape(24.dp))
+            .clip(shape)
             .background(if (isBlurEnabled) Color.Black.copy(alpha = 0.20f + 0.27f * glassOpacity) else Color(0xFF252422))
+            .then(edge)
             .padding(vertical = 8.dp, horizontal = 8.dp)
     ) {
         dockApps.take(4).forEach { app ->
