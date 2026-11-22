@@ -1,5 +1,21 @@
 # Aether Launcher — Implementation Validation & QA Log
 
+## Stock Pixel launcher and Aether drawer, 22 November 2026
+
+Reviewed on the Pixel 7 with Android 17. The stock drawer opens from the dock, keeps its search bar visible while scrolling, and uses a continuous app grid. Swiping down from a scrolled position returns to the top. Pulling down at the top returns Home. Searching for Calculator and tapping the local result opens the app. The system Home gesture returns to the stock launcher. Drawer long press exposes App info.
+
+Stock Home offers Wallpaper & style, Widgets, Apps list, and Home settings from an empty-space hold. Pulling down on empty space opens Android’s notification shade. The installed Home layout includes an Ask Gemini widget. These are observations of the tested device configuration.
+
+Aether keeps its user-configurable Home swipe, contextual menu and direct drawer-to-Home drag. The drawer now uses a continuous grid and exposes Google and Gemini in the drawer and Home search, with assignable Home gestures. Device checks verified swipe up and pull-down dismissal, horizontal Home paging, Home search, empty-space hold, Calculator launch, and both provider handoffs.
+
+Held an app in the drawer, dropped it over unmarked Home space, confirmed the shortcut after a cold restart, and then removed the test shortcut. The drawer also exposes an Add to Home accessibility action.
+
+In a short app-drawer scroll sample on the same phone, Android reported 5 janky frames out of 431 for stock Pixel Launcher and 1 out of 296 for Aether. The 95th-percentile frame time was 12 ms and 8 ms respectively. The two layouts render different content and frame counts, so the results describe these samples only.
+
+Across six drawer open-and-close cycles, the existing slide and fade produced 12 janky frames out of 253 at 34 ms p95. A slide-only variant produced 12 out of 248 at 53 ms p95. The release retains the slide and fade. Measure transition cycles separately from steady-state scrolling because the two workloads showed different frame-time behavior.
+
+The release build and all 25 unit tests passed. The device was returned to its existing default, Pixel Launcher.
+
 ## Pixel 7 validation, 18 November 2026
 
 The device runs Android 17 at 1080 × 2400 with an overridden density of 540 dpi. The optimized APK uses the local debug certificate for device testing.
