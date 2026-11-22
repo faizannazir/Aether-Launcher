@@ -7,6 +7,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.ComponentName
 import android.app.Activity
+import android.app.SearchManager
 import android.app.role.RoleManager
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProviderInfo
@@ -310,10 +311,18 @@ class MainActivity : ComponentActivity() {
                         )
                         LauncherScreen.APP_DRAWER -> AppDrawerScreen(
                             state, actions, viewModel::onCategorySelected,
+                            onGoogleSearch = ::openGoogleSearch,
+                            onGemini = ::openGemini,
+                            onAddToHome = { app ->
+                                viewModel.addAppToHomePage(app)
+                                viewModel.openScreen(LauncherScreen.HOME)
+                            },
                             onCloseDrawer = { viewModel.openScreen(LauncherScreen.HOME) }
                         )
                         LauncherScreen.SEARCH_OVERLAY -> SearchOverlay(
                             state, viewModel::onSearchQueryChanged, ::launchApp,
+                            onGoogleSearch = ::openGoogleSearch,
+                            onGemini = ::openGemini,
                             onClose = { viewModel.openScreen(LauncherScreen.HOME) }
                         )
                     }
@@ -412,6 +421,34 @@ class MainActivity : ComponentActivity() {
             GestureAction.INTERNET -> openAndroidShortcut(AndroidShortcut.INTERNET)
             GestureAction.ANDROID_SETTINGS -> openAndroidShortcut(AndroidShortcut.SETTINGS)
             GestureAction.NAVIGATION -> openAndroidShortcut(AndroidShortcut.NAVIGATION)
+            GestureAction.GOOGLE -> openGoogleSearch("")
+            GestureAction.GEMINI -> openGemini()
+        }
+    }
+
+    private fun openGoogleSearch(query: String) {
+        val trimmed = query.trim()
+        val native = if (trimmed.isEmpty()) {
+            packageManager.getLaunchIntentForPackage("com.google.android.googlequicksearchbox")
+        } else {
+            Intent(Intent.ACTION_WEB_SEARCH)
+                .setPackage("com.google.android.googlequicksearchbox")
+                .putExtra(SearchManager.QUERY, trimmed)
+        }
+
+        val web = Uri.parse("https://www.google.com/").buildUpon()
+        if (trimmed.isNotEmpty()) web.path("search").appendQueryParameter("q", trimmed)
+        if ((native != null && openNative(native, showError = false)) ||
+            openNative(Intent(Intent.ACTION_VIEW, web.build()))) {
+            viewModel.openScreen(LauncherScreen.HOME)
+        }
+    }
+
+    private fun openGemini() {
+        val native = packageManager.getLaunchIntentForPackage("com.google.android.apps.bard")
+        if ((native != null && openNative(native, showError = false)) ||
+            openNative(Intent(Intent.ACTION_VIEW, Uri.parse("https://gemini.google.com/")))) {
+            viewModel.openScreen(LauncherScreen.HOME)
         }
     }
 

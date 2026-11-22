@@ -30,7 +30,8 @@ enum class HomeGesture(val title: String, val defaultAction: GestureAction) {
 enum class GestureAction(val title: String) {
     NONE("No action"), DRAWER("App drawer"), SEARCH("Search apps"),
     EDIT("Edit home"), SETTINGS("Launcher settings"), INTERNET("Internet controls"),
-    ANDROID_SETTINGS("Android settings"), NAVIGATION("System navigation")
+    ANDROID_SETTINGS("Android settings"), NAVIGATION("System navigation"),
+    GOOGLE("Google search"), GEMINI("Open Gemini")
 }
 
 data class LauncherOptions(
