@@ -1,5 +1,22 @@
 # Aether Launcher — Implementation Validation & QA Log
 
+## Drawer responsiveness, glass and icons, 22 November 2026
+
+Retested on the same Android 17 Pixel 7 using the signed release APK. Each sample contained six swipe-up and pull-down cycles. Android's frame statistics reset before each sample.
+
+| Build | Missed frame deadlines per sample | 95th-percentile frame time per sample |
+| --- | --- | --- |
+| Previous drawer and Home transition | 13, 12, 12 | 42, 34, 38 ms |
+| Prepared drawer and Home surfaces with glass and revised icons | 7, 6, 5 | 32, 18, 19 ms |
+
+The previous transition accumulated 37 missed deadlines across 18 cycles. The new transition accumulated 18. The layouts render different frame counts because the drawer now switches directly. The median of the three p95 readings fell from 38 ms to 19 ms. Some swaps still missed a deadline.
+
+A system trace showed repeated recomposition on drawer visibility changes. Retaining the measured surfaces and keeping navigation state out of their content cut that work. Placement exposes the active surface, and the drawer resets search focus, query and scroll when closed. The wallpaper window configuration now updates only when its background changes.
+
+The drawer glass uses a cached translucent gradient. The search controls and dock share a subtle edge highlight. App icons use the platform mask for adaptive artwork and preserve the aspect ratio of legacy artwork in the grids and drag preview. The legacy icon tests cover wide and tall artwork and verify that rendering restores drawable bounds.
+
+The release build and all 27 unit tests passed. On the Pixel we verified swipe-up opening, pull-down dismissal, the active accessibility surface, Calculator search, Back from the keyboard and drawer, and an empty search field on reopening. A drawer long press placed a shortcut on unmarked Home space. We removed the temporary shortcut after the check.
+
 ## Stock Pixel launcher and Aether drawer, 22 November 2026
 
 Reviewed on the Pixel 7 with Android 17. The stock drawer opens from the dock, keeps its search bar visible while scrolling, and uses a continuous app grid. Swiping down from a scrolled position returns to the top. Pulling down at the top returns Home. Searching for Calculator and tapping the local result opens the app. The system Home gesture returns to the stock launcher. Drawer long press exposes App info.
