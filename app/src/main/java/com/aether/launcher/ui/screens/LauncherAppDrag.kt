@@ -4,7 +4,6 @@ import android.content.ClipData
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
-import android.graphics.Path
 import android.graphics.Point
 import android.graphics.RectF
 import android.view.DragEvent
@@ -20,6 +19,7 @@ import androidx.compose.ui.platform.LocalView
 import com.aether.launcher.data.AppIconCache
 import com.aether.launcher.data.model.AppItem
 import com.aether.launcher.data.model.HomeLayoutItem
+import kotlin.math.roundToInt
 
 internal data class AppDragSource(
     val app: AppItem,
@@ -75,7 +75,7 @@ internal class LauncherAppDrag(private val view: View, private val icons: AppIco
     val active: Boolean get() = source != null
 
     fun start(source: AppDragSource) {
-        val pixels = (48 * view.resources.displayMetrics.density).toInt().coerceIn(48, 160)
+        val pixels = (48 * view.resources.displayMetrics.density).roundToInt().coerceIn(48, 160)
         val bitmap = icons.cached(source.app, pixels)
         view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
         view.startDragAndDrop(
@@ -188,7 +188,6 @@ private class AppShadow(
         val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
         val bounds = RectF(0f, 0f, shadowSize.toFloat(), shadowSize.toFloat())
         val radius = shadowSize * .27f
-        canvas.clipPath(Path().apply { addRoundRect(bounds, radius, radius, Path.Direction.CW) })
         val image = bitmap
         if (image != null) {
             canvas.drawBitmap(image, null, bounds, paint)

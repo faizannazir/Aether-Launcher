@@ -7,13 +7,14 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Rect
 import android.graphics.drawable.AdaptiveIconDrawable
+import android.graphics.drawable.Drawable
 import androidx.collection.LruCache
-import androidx.core.graphics.drawable.toBitmap
 import com.aether.launcher.data.model.AppItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import kotlin.math.roundToInt
 
 internal class AppIconCache(private val context: Context) {
     private data class Key(val packageName: String, val className: String, val revision: Int, val size: Int)
@@ -37,22 +38,33 @@ internal class AppIconCache(private val context: Context) {
                 return@withPermit null
             }
 
-            val bitmap = if (drawable is AdaptiveIconDrawable) {
-                val image = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-                val canvas = Canvas(image)
-                // Adaptive icon layers include a 25% safe margin beyond the visible viewport.
-                val inset = size / 4
-                val bounds = Rect(-inset, -inset, size + inset, size + inset)
-                listOfNotNull(drawable.background, drawable.foreground).forEach { layer ->
-                    layer.bounds = bounds
-                    layer.draw(canvas)
-                }
-                image
-            } else {
-                drawable.toBitmap(size, size, Bitmap.Config.ARGB_8888)
-            }
+            val bitmap = renderAppIcon(drawable, size)
             icons.put(key, bitmap)
             bitmap
         }
     }
+}
+
+internal fun renderAppIcon(drawable: Drawable, size: Int): Bitmap {
+    val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+    val intrinsicWidth = drawable.intrinsicWidth
+    val intrinsicHeight = drawable.intrinsicHeight
+    val bounds = if (drawable is AdaptiveIconDrawable || intrinsicWidth <= 0 || intrinsicHeight <= 0) {
+        Rect(0, 0, size, size)
+    } else {
+        val scale = size.toFloat() / maxOf(intrinsicWidth, intrinsicHeight)
+        val width = (intrinsicWidth * scale).roundToInt().coerceIn(1, size)
+        val height = (intrinsicHeight * scale).roundToInt().coerceIn(1, size)
+        val left = (size - width) / 2
+        val top = (size - height) / 2
+        Rect(left, top, left + width, top + height)
+    }
+    val previousBounds = drawable.copyBounds()
+    try {
+        drawable.bounds = bounds
+        drawable.draw(Canvas(bitmap))
+    } finally {
+        drawable.bounds = previousBounds
+    }
+    return bitmap
 }

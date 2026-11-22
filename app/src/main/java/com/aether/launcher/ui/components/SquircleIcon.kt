@@ -58,7 +58,7 @@ fun SquircleIcon(
     val icons = LocalAppIcons.current
     val pixelSize = with(LocalDensity.current) { 48.dp.roundToPx().coerceIn(48, 160) }
     val bitmap by produceState(icons?.cached(app, pixelSize), app, pixelSize) {
-        value = icons?.load(app, pixelSize)
+        value = icons?.cached(app, pixelSize) ?: icons?.load(app, pixelSize)
     }
 
     val accessibleDescription = "Launch ${app.label}"
@@ -79,9 +79,7 @@ fun SquircleIcon(
     ) {
         Box(
             contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .size(size)
-                .clip(RoundedCornerShape(percent = 27))
+            modifier = Modifier.size(size)
         ) {
             val image = remember(bitmap) { bitmap?.asImageBitmap() }
             if (image != null) {
